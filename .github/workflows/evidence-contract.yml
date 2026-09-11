@@ -1,0 +1,27 @@
+name: Evidence Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/evidence.json'
+      - 'schema/evidence.schema.json'
+      - 'scripts/validate_evidence.py'
+  pull_request:
+    paths:
+      - 'data/evidence.json'
+      - 'schema/evidence.schema.json'
+      - 'scripts/validate_evidence.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validate evidence contract
+        run: python3 scripts/validate_evidence.py
