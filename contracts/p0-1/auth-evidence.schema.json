@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://afagh-virtual-office.github.io/contracts/p0-1/auth-evidence.schema.json",
+  "title": "AFAGH P0-1 Auth Evidence",
+  "type": "object",
+  "required": ["schema_version", "request", "identity", "session", "authorization", "audit", "evidence"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "p0-1.auth-evidence.v1"},
+    "request": {
+      "type": "object",
+      "required": ["request_id", "method", "resource", "timestamp"],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "method": {"type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]},
+        "resource": {"type": "string", "minLength": 1},
+        "timestamp": {"type": "string", "format": "date-time"}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "required": ["subject_id", "display_name"],
+      "properties": {
+        "subject_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string", "minLength": 1},
+        "email": {"type": "string"}
+      }
+    },
+    "session": {
+      "type": "object",
+      "required": ["session_id", "status", "issued_at", "expires_at"],
+      "properties": {
+        "session_id": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["VALID", "EXPIRED", "REVOKED", "UNKNOWN"]},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["tenant_id", "workspace_id"],
+      "properties": {
+        "tenant_id": {"type": "string", "minLength": 1},
+        "workspace_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["decision", "decision_id", "roles", "permissions"],
+      "properties": {
+        "decision": {"type": "string", "enum": ["ALLOW", "DENY"]},
+        "decision_id": {"type": "string", "minLength": 1},
+        "roles": {"type": "array", "items": {"type": "string"}},
+        "permissions": {"type": "array", "items": {"type": "string"}},
+        "policy_version": {"type": "string"}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": ["event_id", "event_type", "actor_subject_id", "outcome", "timestamp"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1},
+        "event_type": {"type": "string", "minLength": 1},
+        "actor_subject_id": {"type": "string", "minLength": 1},
+        "outcome": {"type": "string", "enum": ["SUCCESS", "DENIED", "ERROR"]},
+        "timestamp": {"type": "string", "format": "date-time"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["evidence_id", "type", "source", "integrity", "created_at"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "enum": ["AUDIT_EVENT", "AUTH_DECISION", "SESSION_ASSERTION", "REQUEST_TRACE"]},
+        "source": {"type": "string", "minLength": 1},
+        "integrity": {"type": "string", "enum": ["VERIFIED", "UNVERIFIED"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "uri": {"type": "string"}
+      }
+    }
+  }
+}
