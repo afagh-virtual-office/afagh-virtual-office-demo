@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFAGH Virtual Office — Identity & Evidence</title>
+<style>
+:root{--bg:#07101c;--panel:#0d1929;--panel2:#11243d;--line:#1c3857;--text:#ecf5ff;--muted:#8fa8c2;--accent:#66d9ef;--good:#5ee6a8;--warn:#ffd166;--bad:#ff6b7a}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#122847 0,#07101c 50%);color:var(--text);font-family:Inter,Segoe UI,Tahoma,sans-serif}.app{min-height:100vh}.shell{max-width:1500px;margin:auto;padding:26px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}.eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent)}h1{font-size:30px;margin:8px 0}h2{font-size:15px;margin:0 0 12px}.sub,.label{color:var(--muted);font-size:11px;line-height:1.8}.controls{display:flex;gap:8px;align-items:center}.btn{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:8px 12px;border-radius:9px;cursor:pointer}.btn.active{background:var(--panel2);border-color:var(--accent)}.banner{border:1px solid #5b4b23;background:#251f10;color:#ffe08a;padding:11px 14px;border-radius:10px;margin-bottom:18px;font-size:11px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:rgba(13,25,41,.94);border:1px solid var(--line);border-radius:13px;padding:17px}.metric{font-size:25px;font-weight:850;margin-top:7px}.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}.section{margin-top:14px}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.kv{display:grid;grid-template-columns:180px 1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:11px}.kv:last-child{border-bottom:0}.value{font-weight:700}.badge{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:800}.pass{background:#0f2d25;border:1px solid #1d694d;color:#8bf4c5}.deny{background:#29151e;border:1px solid #6d3140;color:#ff9cab}.event{display:grid;grid-template-columns:145px 120px 1fr 90px;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);background:#0a1627;border-radius:9px;margin:7px 0;font-size:10px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.evidence{border-right:3px solid var(--accent);background:#0a1627;padding:12px;border-radius:8px;margin:8px 0}.evidence b{display:block;margin-bottom:5px}.path{color:var(--accent);font-family:ui-monospace,monospace;font-size:10px}.footer{margin-top:20px;color:#71869f;font-size:10px;line-height:1.7}@media(max-width:950px){.grid,.two{grid-template-columns:1fr}.event{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.top{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="app"><main class="shell">
+<header class="top"><div><div class="eyebrow">IDENTITY / AUTHORIZATION / EVIDENCE</div><h1 id="title">هویت و شواهد دسترسی</h1><p class="sub" id="subtitle">اولین vertical slice واقعی برای اثبات Identity، Session، Tenant، Role، Permission، Resource، Decision و Audit Evidence.</p></div><div class="controls"><button class="btn active" id="fa">FA</button><button class="btn" id="en">EN</button></div></header>
+<div class="banner" id="banner">CONTROLLED DEMO: این صفحه شواهد ساختاریافته را نمایش می‌دهد؛ تا زمانی که IdP و backend متصل نشده‌اند، «session معتبر» به‌معنای اثبات runtime واقعی نیست.</div>
+<section class="grid">
+<div class="card"><div class="label" data-fa="کاربر واردشده" data-en="Authenticated user">کاربر واردشده</div><div class="metric">admin@afagh.local</div></div>
+<div class="card"><div class="label" data-fa="Session" data-en="Session">Session</div><div class="metric good" data-fa="VALID" data-en="VALID">VALID</div></div>
+<div class="card"><div class="label" data-fa="Tenant / Context" data-en="Tenant / Context">Tenant / Context</div><div class="metric">AFAGH / HQ</div></div>
+<div class="card"><div class="label" data-fa="Authorization" data-en="Authorization">Authorization</div><div class="metric good" data-fa="ALLOWED" data-en="ALLOWED">ALLOWED</div></div>
+</section>
+<section class="two section">
+<div class="card"><h2 data-fa="Identity Context" data-en="Identity Context">Identity Context</h2>
+<div class="kv"><span data-fa="کاربر" data-en="User">کاربر</span><span class="value">admin@afagh.local</span></div>
+<div class="kv"><span data-fa="Session ID" data-en="Session ID">Session ID</span><span class="value mono">sess_demo_01H9AFAGH</span></div>
+<div class="kv"><span data-fa="Tenant" data-en="Tenant">Tenant</span><span class="value">AFAGH-HQ</span></div>
+<div class="kv"><span data-fa="Context" data-en="Context">Context</span><span class="value">workspace:architecture</span></div>
+<div class="kv"><span data-fa="Role" data-en="Role">Role</span><span class="value">Architecture Admin</span></div>
+<div class="kv"><span data-fa="Permission set" data-en="Permission set">Permission set</span><span class="value mono">architecture.read · evidence.read · audit.read</span></div>
+</div>
+<div class="card"><h2 data-fa="Requested Resource" data-en="Requested Resource">Requested Resource</h2>
+<div class="evidence"><b>GET /api/evidence/architecture/P0-1</b><div class="label">resource: <span class="path">evidence://architecture/P0-1</span></div></div>
+<div class="kv"><span data-fa="Decision" data-en="Decision">Decision</span><span class="badge pass">ALLOW</span></div>
+<div class="kv"><span data-fa="Policy" data-en="Policy">Policy</span><span class="value mono">architecture.read</span></div>
+<div class="kv"><span data-fa="Decision ID" data-en="Decision ID">Decision ID</span><span class="value mono">dec_01H9AFAGH</span></div>
+<div class="kv"><span data-fa="Timestamp" data-en="Timestamp">Timestamp</span><span class="value">2026-09-12T00:10:24+03:30</span></div>
+</div>
+</section>
+<section class="section card"><h2 data-fa="Audit Event" data-en="Audit Event">Audit Event</h2><p class="label" data-fa="هر تصمیم دسترسی باید یک event قابل ردیابی ایجاد کند." data-en="Every access decision must produce a traceable event.">هر تصمیم دسترسی باید یک event قابل ردیابی ایجاد کند.</p>
+<div class="event"><span class="mono">00:10:24</span><span class="mono">AUTHZ.ALLOW</span><span>admin@afagh.local → evidence://architecture/P0-1</span><span class="badge pass">RECORDED</span></div>
+<div class="event"><span class="mono">00:10:21</span><span class="mono">SESSION.VALID</span><span>sess_demo_01H9AFAGH → AFAGH-HQ</span><span class="badge pass">RECORDED</span></div>
+<div class="event"><span class="mono">00:10:18</span><span class="mono">IDENTITY.RESOLVED</span><span>admin@afagh.local → Architecture Admin</span><span class="badge pass">RECORDED</span></div>
+</section>
+<section class="section card"><h2 data-fa="Evidence Location" data-en="Evidence Location">Evidence Location</h2>
+<div class="evidence"><b data-fa="مرجع شواهد" data-en="Evidence reference">مرجع شواهد</b><div class="path">evidence://auth/2026-09-12/dec_01H9AFAGH.json</div></div>
+<div class="label" data-fa="معیار تکمیل P0-1: identity، session، tenant، authorization decision و audit event باید از runtime/backend واقعی تولید شوند؛ داده استاتیک این صفحه صرفاً قرارداد UI و evidence schema را تثبیت می‌کند." data-en="P0-1 exit criterion: identity, session, tenant, authorization decision and audit event must be produced by the real runtime/backend. Static data here only establishes the UI contract and evidence schema.">معیار تکمیل P0-1: identity، session، tenant، authorization decision و audit event باید از runtime/backend واقعی تولید شوند؛ داده استاتیک این صفحه صرفاً قرارداد UI و evidence schema را تثبیت می‌کند.</div>
+</section>
+<div class="footer">AFAGH Virtual Office · Identity & Evidence Control Surface · Bilingual FA/EN · Controlled / non-live until backend integration</div>
+</main></div>
+<script>
+const dict={fa:{dir:'rtl',title:'هویت و شواهد دسترسی',subtitle:'اولین vertical slice واقعی برای اثبات Identity، Session، Tenant، Role، Permission، Resource، Decision و Audit Evidence.',banner:'CONTROLLED DEMO: این صفحه شواهد ساختاریافته را نمایش می‌دهد؛ تا زمانی که IdP و backend متصل نشده‌اند، «session معتبر» به‌معنای اثبات runtime واقعی نیست.'},en:{dir:'ltr',title:'Identity & Access Evidence',subtitle:'The first vertical slice for proving Identity, Session, Tenant, Role, Permission, Resource, Decision and Audit Evidence.',banner:'CONTROLLED DEMO: this page displays structured evidence. Until the IdP and backend are connected, “valid session” is not proof of a live runtime session.'}};
+function setLang(lang){document.documentElement.lang=lang;document.documentElement.dir=dict[lang].dir;document.getElementById('title').textContent=dict[lang].title;document.getElementById('subtitle').textContent=dict[lang].subtitle;document.getElementById('banner').textContent=dict[lang].banner;document.querySelectorAll('[data-fa]').forEach(el=>el.textContent=el.dataset[lang]);document.getElementById('fa').classList.toggle('active',lang==='fa');document.getElementById('en').classList.toggle('active',lang==='en');localStorage.setItem('afagh-lang',lang)}
+document.getElementById('fa').onclick=()=>setLang('fa');document.getElementById('en').onclick=()=>setLang('en');setLang(localStorage.getItem('afagh-lang')||'fa');
+</script>
+</body></html>
