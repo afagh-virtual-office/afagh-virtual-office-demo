@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://afagh-virtual-office.github.io/afagh-virtual-office-demo/schema/evidence.schema.json",
+  "title": "AFAGH Architecture Evidence Snapshot",
+  "type": "object",
+  "required": ["schema_version","snapshot_type","live","source_repository","reviewed_head","reviewed_run","gate","production","architecture_contracts","runtime_evidence","verifier","axes","blockers","evidence_sources"],
+  "properties": {
+    "schema_version": {"type":"string"},
+    "snapshot_type": {"type":"string"},
+    "live": {"type":"boolean"},
+    "source_repository": {"type":"string"},
+    "reviewed_head": {"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "reviewed_run": {"type":"integer","minimum":1},
+    "gate": {"enum":["PASSED","NOT PASSED","UNKNOWN"]},
+    "production": {"enum":["READY","BLOCKED","UNKNOWN"]},
+    "architecture_contracts": {"$ref":"#/$defs/counter"},
+    "runtime_evidence": {"$ref":"#/$defs/counter"},
+    "verifier": {"type":"object","required":["pass","total","blockers"],"properties":{"pass":{"type":"integer","minimum":0},"total":{"type":"integer","minimum":0},"blockers":{"type":"integer","minimum":0}},"additionalProperties":false},
+    "axes": {"type":"object","minProperties":10,"additionalProperties":{"type":"object","required":["level","status"],"properties":{"level":{"type":"integer","minimum":1,"maximum":4},"status":{"enum":["PASS","BLOCKED","UNKNOWN"]}},"additionalProperties":false}},
+    "blockers": {"type":"array","items":{"type":"object","required":["id","title","status","reason"],"properties":{"id":{"type":"string"},"title":{"type":"string"},"status":{"enum":["BLOCKED","OPEN","UNKNOWN"]},"reason":{"type":"string"}},"additionalProperties":false}},
+    "evidence_sources": {"type":"array","items":{"type":"string"}},
+    "note": {"type":"string"}
+  },
+  "$defs": {"counter":{"type":"object","required":["pass","total"],"properties":{"pass":{"type":"integer","minimum":0},"total":{"type":"integer","minimum":0}},"additionalProperties":false}},
+  "additionalProperties": true
+}
