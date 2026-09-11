@@ -1,0 +1,9 @@
+{
+  "name": "afagh-p0-1-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "verify": "node verifier.mjs fixtures/auth-001.json fixtures/auth-002.json fixtures/auth-003.json fixtures/auth-004.json fixtures/auth-005.json"
+  }
+}
