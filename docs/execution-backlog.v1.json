@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0.0",
+  "status": "CONTROLLED_BLUEPRINT",
+  "gate_1": "NOT_PASSED",
+  "production_authorization": "BLOCKED",
+  "hierarchy": ["epic", "story", "task", "contract", "test", "evidence"],
+  "work_packages": [
+    {"id":"B0","epic":"Runtime & Repository Foundation","owner":"T1","dependencies":[],"stories":[
+      {"id":"B0-S1","story":"Repository boundaries","tasks":["define module ownership","enforce dependency direction","add forbidden-import checks"],"contract":"module-boundary/v1","tests":["architecture-boundary"],"evidence":["CI boundary report"]},
+      {"id":"B0-S2","story":"Runtime configuration","tasks":["define environment schema","separate secrets","fail closed on invalid config"],"contract":"configuration/v1","tests":["config validation","secret scan"],"evidence":["config validation report"]},
+      {"id":"B0-S3","story":"Test harness","tasks":["standardize test entry points","make execution deterministic","record exact head"],"contract":"test-execution/v1","tests":["clean checkout reproducibility"],"evidence":["CI exact-head record"]}
+    ]},
+    {"id":"B1","epic":"Identity Context","owner":"T1","dependencies":["B0","A3"],"stories":[
+      {"id":"B1-S1","story":"Principal model","tasks":["define principal","define session context","propagate correlation IDs"],"contract":"principal-context/v1","tests":["identity context"],"evidence":["identity runtime evidence"]},
+      {"id":"B1-S2","story":"Organization context","tasks":["resolve tenant context","reject ambiguous context","enforce isolation"],"contract":"organization-context/v1","tests":["tenant isolation"],"evidence":["session integration evidence"]},
+      {"id":"B1-S3","story":"Production identity adapter gate","tasks":["close A3 protected integration","prove revocation/session","separate protocol/implementation/credential/ratification states"],"contract":"identity-adapter/v1","tests":["integration","revocation","expired session","invalid token"],"evidence":["A3 exact-head evidence"]}
+    ]},
+    {"id":"B2","epic":"Authorization & Policy","owner":"T1+T3","dependencies":["B1"],"stories":[
+      {"id":"B2-S1","story":"Policy decision model","tasks":["define subject/action/resource/context","define result schema","default deny"],"contract":"authorization-decision/v1","tests":["allow deny matrix","default deny"],"evidence":["policy test report"]},
+      {"id":"B2-S2","story":"Enforcement point","tasks":["enforce before mutation","enforce before tool execution","standardize denial"],"contract":"authorization-enforcement/v1","tests":["bypass attempts"],"evidence":["security audit evidence"]}
+    ]},
+    {"id":"B3","epic":"Application Contracts","owner":"T1+T2","dependencies":["B2"],"stories":[
+      {"id":"B3-S1","story":"Command/query contracts","tasks":["version contracts","validate inputs","map commands to owners"],"contract":"application-contract/v1","tests":["schema compatibility"],"evidence":["contract test report"]},
+      {"id":"B3-S2","story":"API boundary","tasks":["map transport to application","prohibit direct DB access"],"contract":"api/v1","tests":["API contract","architecture"],"evidence":["API contract artifact"]}
+    ]},
+    {"id":"B4","epic":"Persistence & Transactions","owner":"T2","dependencies":["B3"],"stories":[
+      {"id":"B4-S1","story":"Source of truth","tasks":["assign aggregate ownership","define cross-domain read rules"],"contract":"source-of-truth/v1","tests":["ownership consistency"],"evidence":["ownership matrix"]},
+      {"id":"B4-S2","story":"Transaction boundary","tasks":["define atomic mutation","define rollback semantics","define idempotency"],"contract":"transaction/v1","tests":["commit rollback idempotency"],"evidence":["transaction integration"]}
+    ]},
+    {"id":"B5","epic":"Event & Outbox","owner":"T1+T2","dependencies":["B4"],"stories":[
+      {"id":"B5-S1","story":"Event contract","tasks":["define envelope","version events","require correlation/causation"],"contract":"domain-event/v1","tests":["schema compatibility"],"evidence":["event contract report"]},
+      {"id":"B5-S2","story":"Outbox","tasks":["atomic event intent","async publication","safe retry"],"contract":"outbox/v1","tests":["atomicity","retry","idempotency"],"evidence":["outbox integration"]}
+    ]},
+    {"id":"B6","epic":"Audit & Observability","owner":"T3+T4","dependencies":["B2","B5"],"stories":[
+      {"id":"B6-S1","story":"Audit model","tasks":["define audit envelope","cover sensitive actions","record outcome"],"contract":"audit/v1","tests":["mandatory audit coverage"],"evidence":["audit records"]},
+      {"id":"B6-S2","story":"Observability","tasks":["structured logs","metrics","tracing","health/readiness"],"contract":"observability/v1","tests":["correlation propagation","telemetry availability"],"evidence":["telemetry verification"]}
+    ]},
+    {"id":"B7","epic":"Organization Domain","owner":"T2","dependencies":["B4"],"stories":[
+      {"id":"B7-S1","story":"Organization aggregate","tasks":["lifecycle","invariants","tenant boundary"],"contract":"organization-domain/v1","tests":["invariants","isolation"],"evidence":["domain integration"]}
+    ]},
+    {"id":"B8","epic":"Business Customer Commerce","owner":"T2","dependencies":["B7"],"stories":[
+      {"id":"B8-S1","story":"Business domain","tasks":["aggregate","invariants","ownership APIs"],"contract":"business-domain/v1","tests":["domain","contract"],"evidence":["source-of-truth evidence"]},
+      {"id":"B8-S2","story":"Customer 360","tasks":["customer reference model","authorized projections","conflict semantics"],"contract":"customer/v1","tests":["identity","authorization","projection consistency"],"evidence":["integration evidence"]},
+      {"id":"B8-S3","story":"Commerce","tasks":["commerce aggregates","transaction rules","domain events"],"contract":"commerce/v1","tests":["transaction","event"],"evidence":["domain contract evidence"]}
+    ]},
+    {"id":"B9","epic":"Workflow Communication Trust","owner":"T2+T3","dependencies":["B5","B6","B8"],"stories":[
+      {"id":"B9-S1","story":"Workflow runtime","tasks":["state machine","retry","idempotency","compensation"],"contract":"workflow/v1","tests":["state","retry","duplicate","failure"],"evidence":["workflow execution"]},
+      {"id":"B9-S2","story":"Communication boundary","tasks":["channel abstraction","delivery status","failure handling","privacy controls"],"contract":"communication/v1","tests":["contract","failure path"],"evidence":["communication integration"]},
+      {"id":"B9-S3","story":"Trust policy","tasks":["trust signals","policy hooks","sensitive action controls"],"contract":"trust-policy/v1","tests":["deny","step-up","approval"],"evidence":["security evidence"]}
+    ]},
+    {"id":"B10","epic":"AI Governed Runtime","owner":"T3","dependencies":["A7","B2","B5","B6","B9"],"stories":[
+      {"id":"B10-S1","story":"Agent runtime","tasks":["lifecycle","execution context","limits","cancellation"],"contract":"agent-runtime/v1","tests":["lifecycle","timeout","cancellation","isolation"],"evidence":["agent runtime report"]},
+      {"id":"B10-S2","story":"Tool registry","tasks":["typed tools","schemas","permissions","versioning"],"contract":"tool/v1","tests":["schema","unauthorized tool"],"evidence":["tool registry"]},
+      {"id":"B10-S3","story":"Governed execution","tasks":["intent","policy","authorization","tool","audit","prevent direct mutation"],"contract":"governed-execution/v1","tests":["bypass","policy denial","audit completeness"],"evidence":["A7 execution evidence"]}
+    ]},
+    {"id":"B11","epic":"Production Operations","owner":"T1+T4","dependencies":["B0","B6","B10"],"stories":[
+      {"id":"B11-S1","story":"Deployment","tasks":["immutable artifact","promotion","rollback"],"contract":"deployment/v1","tests":["deploy smoke","rollback"],"evidence":["deployment evidence"]},
+      {"id":"B11-S2","story":"Reliability","tasks":["SLOs","timeouts","retries","fault handling"],"contract":"reliability/v1","tests":["fault injection","recovery"],"evidence":["reliability report"]},
+      {"id":"B11-S3","story":"Backup Restore DR","tasks":["backup policy","restore procedure","recovery objectives","periodic verification"],"contract":"dr/v1","tests":["restore","recovery exercise"],"evidence":["DR evidence"]},
+      {"id":"B11-S4","story":"Release gate","tasks":["exact-head verification","security checks","evidence completeness","approval record"],"contract":"release-gate/v1","tests":["fail-closed release simulation"],"evidence":["final release decision package"]}
+    ]}
+  ],
+  "global_definition_of_done": ["implementation complete","applicable tests pass","security controls pass","observability present","documentation updated","machine-verifiable evidence attached","exact reviewed commit recorded"],
+  "control_rule": "No production implementation authorization before Gate 1 PASS."
+}
