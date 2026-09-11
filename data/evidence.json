@@ -1,4 +1,5 @@
 {
+  "schema_version": "1.0.0",
   "snapshot_type": "controlled-demo-snapshot",
   "live": false,
   "source_repository": "afagh-virtual-office/afagh-virtual-office",
