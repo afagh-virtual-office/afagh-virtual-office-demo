@@ -1,0 +1,47 @@
+name: Evidence Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/evidence.json'
+      - 'schema/evidence.schema.json'
+      - 'scripts/validate_evidence.py'
+      - 'scripts/validate_evidence_pipeline.py'
+      - '.github/workflows/evidence-pipeline.yml'
+  pull_request:
+    paths:
+      - 'data/evidence.json'
+      - 'schema/evidence.schema.json'
+      - 'scripts/validate_evidence.py'
+      - 'scripts/validate_evidence_pipeline.py'
+      - '.github/workflows/evidence-pipeline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Evidence Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact ref
+        uses: actions/checkout@v6
+      - name: Validate base contract
+        run: python3 scripts/validate_evidence.py
+      - name: Validate pipeline contract
+        run: python3 scripts/validate_evidence_pipeline.py
+      - name: Publish validation summary
+        run: |
+          python3 scripts/validate_evidence_pipeline.py > pipeline-result.txt
+          cat pipeline-result.txt >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Pages Publication Gate
+    needs: contract
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo 'PASS: evidence contract validated before Pages publication.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Policy: VALIDATE_THEN_PUBLISH / fail-closed.' >> "$GITHUB_STEP_SUMMARY"
