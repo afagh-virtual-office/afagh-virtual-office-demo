@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "status": "CONTROLLED_BLUEPRINT",
+  "gate_1": "NOT_PASSED",
+  "production": "BLOCKED",
+  "canonical_repository": "afagh-virtual-office/afagh-virtual-office",
+  "work_packages": [
+    {"id":"B0","owner":"T1","depends_on":[],"status":"BLOCKED_BY_GATE_1","evidence":["architecture","ci"]},
+    {"id":"B1","owner":"T1","depends_on":["B0","A3"],"status":"BLOCKED_BY_GATE_1","evidence":["identity-integration","session"]},
+    {"id":"B2","owner":"T1+T3","depends_on":["B1"],"status":"BLOCKED_BY_GATE_1","evidence":["policy-tests","audit"]},
+    {"id":"B3","owner":"T1+T2","depends_on":["B2"],"status":"BLOCKED_BY_GATE_1","evidence":["contract-tests"]},
+    {"id":"B4","owner":"T2","depends_on":["B3"],"status":"BLOCKED_BY_GATE_1","evidence":["transaction","integration"]},
+    {"id":"B5","owner":"T1+T2","depends_on":["B4"],"status":"BLOCKED_BY_GATE_1","evidence":["event-contract","outbox"]},
+    {"id":"B6","owner":"T3+T4","depends_on":["B2","B5"],"status":"BLOCKED_BY_GATE_1","evidence":["audit","observability"]},
+    {"id":"B7","owner":"T2","depends_on":["B4"],"status":"BLOCKED_BY_GATE_1","evidence":["domain","integration"]},
+    {"id":"B8","owner":"T2","depends_on":["B7"],"status":"BLOCKED_BY_GATE_1","evidence":["domain","contracts"]},
+    {"id":"B9","owner":"T2+T3","depends_on":["B5","B6","B8"],"status":"BLOCKED_BY_GATE_1","evidence":["workflow","security"]},
+    {"id":"B10","owner":"T3","depends_on":["A7","B2","B5","B6","B9"],"status":"BLOCKED_BY_GATE_1","evidence":["agent","tool","policy"]},
+    {"id":"B11","owner":"T1+T4","depends_on":["B0","B6","B10"],"status":"BLOCKED_BY_GATE_1","evidence":["operations","reliability","dr"]}
+  ],
+  "control_rule": "No production implementation authorization before Gate 1 PASS."
+}
