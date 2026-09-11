@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Evidence closure contract for all P0 work items required by the final architecture gate.",
+  "rule": "A P0 item may move to PASS only when the required evidence is produced, machine-verifiable, tied to a reviewed release head, and accepted by the affected gate.",
+  "status_model": ["OPEN", "BLOCKED", "IN_PROGRESS", "WAITING_EVIDENCE", "PASS"],
+  "items": [
+    {
+      "id": "RW-001",
+      "title": "Green Architecture Gate",
+      "axis": "A10",
+      "required_evidence": ["latest architecture gate run", "all required stages green", "release head SHA", "artifact/evidence bundle"],
+      "verification": "Architecture Gate workflow on the exact release head",
+      "acceptance": "No failed, skipped, or stale required stage",
+      "status": "BLOCKED",
+      "blocker": "Canonical repository is not currently readable through the connected GitHub integration."
+    },
+    {
+      "id": "RW-002",
+      "title": "Verify host-level branch protection",
+      "axis": "A10",
+      "required_evidence": ["machine-readable branch/rules configuration", "protected branch name", "required checks", "review requirement"],
+      "verification": "GitHub host-level rules/branch protection read",
+      "acceptance": "Protection is independently verifiable on the release branch",
+      "status": "BLOCKED",
+      "blocker": "Host-level branch protection cannot be independently read from the current connection."
+    },
+    {
+      "id": "RW-003",
+      "title": "Canonical CRM evidence",
+      "axis": "A3",
+      "required_evidence": ["approved CRM journey", "customer/business identity", "domain transaction result", "trace/audit record"],
+      "verification": "End-to-end CRM/domain journey test",
+      "acceptance": "Evidence proves canonical customer/business state without synthetic success",
+      "status": "BLOCKED",
+      "blocker": "Production-grade CRM source and execution evidence are not currently accessible for verification."
+    },
+    {
+      "id": "RW-004",
+      "title": "Production provider evidence",
+      "axis": "A4",
+      "required_evidence": ["provider registry state", "health result", "circuit-breaker transitions", "failover/degraded result", "evidence record"],
+      "verification": "Production-intelligence and failure-injection verification",
+      "acceptance": "Provider behavior is reproducible and traceable against approved production-like targets",
+      "status": "WAITING_EVIDENCE",
+      "blocker": null
+    },
+    {
+      "id": "RW-005",
+      "title": "Real provider connectivity",
+      "axis": "A8",
+      "required_evidence": ["connectivity check", "timeout behavior", "degradation behavior", "recovery behavior"],
+      "verification": "Approved provider connectivity verification",
+      "acceptance": "Connectivity and recovery are proven rather than inferred from mocks",
+      "status": "WAITING_EVIDENCE",
+      "blocker": null
+    },
+    {
+      "id": "RW-006",
+      "title": "Production transaction proof",
+      "axis": "A5",
+      "required_evidence": ["policy decision", "approval decision when required", "tool execution", "domain transaction", "verification", "audit", "recovery path"],
+      "verification": "Representative consequential journey test",
+      "acceptance": "Observe -> Decide -> Approve -> Execute -> Verify is fully traceable",
+      "status": "OPEN",
+      "blocker": null
+    },
+    {
+      "id": "RW-007",
+      "title": "Production security evidence",
+      "axis": "A6",
+      "required_evidence": ["fail-closed result", "secret-reference boundary proof", "failure-injection result", "host control evidence"],
+      "verification": "Security/runtime verification",
+      "acceptance": "No raw secret exposure and consequential failure paths remain fail-closed",
+      "status": "WAITING_EVIDENCE",
+      "blocker": null
+    }
+  ]
+}
