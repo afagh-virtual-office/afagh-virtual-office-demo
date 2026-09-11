@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Prioritized remaining work required to move the AFAGH Virtual Office architecture from current evidence state to a green final gate.",
+  "priority_model": ["P0","P1","P2"],
+  "statuses": ["OPEN","BLOCKED","IN_PROGRESS","WAITING_EVIDENCE"],
+  "items": [
+    {"id":"RW-001","priority":"P0","axis":"A10","phase_dependency":["Phase 2/2.5","Phase 3","Phase 4"],"title":"Green Architecture Gate","status":"BLOCKED","why":"Final release cannot proceed while the shared architecture gate is not green.","exit":"Latest architecture gate passes all required stages on the release head.","gate_impact":"Final Release Gate"},
+    {"id":"RW-002","priority":"P0","axis":"A10","phase_dependency":["Phase 2/2.5"],"title":"Verify host-level branch protection","status":"BLOCKED","why":"Repository policy exists but host-level branch protection was not independently verifiable.","exit":"Branch protection/rules are machine-verifiably enabled on the protected branch.","gate_impact":"Governance / Security"},
+    {"id":"RW-003","priority":"P0","axis":"A3","phase_dependency":["Phase 1","Phase 2/2.5","Phase 3","Phase 4"],"title":"Canonical CRM evidence","status":"BLOCKED","why":"CRM foundations and command path exist, but production-grade canonical customer/business evidence is not yet proven.","exit":"End-to-end CRM journey produces verifiable customer/business evidence from the approved source.","gate_impact":"Business / Production"},
+    {"id":"RW-004","priority":"P0","axis":"A4","phase_dependency":["Phase 4"],"title":"Production provider evidence","status":"IN_PROGRESS","why":"Production Intelligence is implemented, but real provider connectivity and production evidence remain unproven.","exit":"Provider registry, health, breaker, failover and evidence are verified against approved production-like providers.","gate_impact":"AI Production Gate"},
+    {"id":"RW-005","priority":"P0","axis":"A8","phase_dependency":["Phase 4"],"title":"Real provider connectivity","status":"IN_PROGRESS","why":"Provider registry/health/circuit-breaker foundations exist, but connectivity remains a release dependency.","exit":"Approved provider connectivity passes health, timeout, degradation and recovery verification.","gate_impact":"Infrastructure Gate"},
+    {"id":"RW-006","priority":"P0","axis":"A5","phase_dependency":["Phase 3","Phase 4"],"title":"Production transaction proof","status":"OPEN","why":"Operation runner/recovery exists, but release-grade end-to-end transaction evidence is still required.","exit":"A representative consequential journey proves policy, approval, execute, verify, audit and recovery end-to-end.","gate_impact":"Execution Gate"},
+    {"id":"RW-007","priority":"P0","axis":"A6","phase_dependency":["Phase 4"],"title":"Production security evidence","status":"IN_PROGRESS","why":"Secret boundary and failure injection exist, but production security evidence and host controls remain incomplete.","exit":"Security verification proves fail-closed behavior, secret-reference boundary and approved host controls.","gate_impact":"Security Gate"},
+    {"id":"RW-008","priority":"P1","axis":"A1","phase_dependency":["Phase 2/2.5","Phase 3","Phase 4"],"title":"Authorization evidence","status":"OPEN","why":"Identity propagation is implemented, but production authorization outcomes need durable evidence.","exit":"Representative authorization decisions are verified and traceable through the runtime.","gate_impact":"Identity Gate"},
+    {"id":"RW-009","priority":"P1","axis":"A2","phase_dependency":["Phase 3","Phase 4"],"title":"Production business journeys + KPI linkage","status":"OPEN","why":"Business journeys and acceptance criteria exist, but live operational KPIs are not connected to execution evidence.","exit":"Representative business journeys execute with measurable KPI evidence and acceptance verification.","gate_impact":"Product Gate"},
+    {"id":"RW-010","priority":"P1","axis":"A7","phase_dependency":["Phase 4"],"title":"Production event infrastructure evidence","status":"IN_PROGRESS","why":"Trace/audit foundations exist, but production event infrastructure still needs direct evidence.","exit":"Production event path demonstrates traceable propagation, audit provenance and recovery linkage.","gate_impact":"Data / Observability Gate"},
+    {"id":"RW-011","priority":"P1","axis":"A9","phase_dependency":["Phase 4"],"title":"Live SLI stream + validated cost telemetry","status":"IN_PROGRESS","why":"SLI/SLO and cost governor foundations exist, but live telemetry is not yet validated.","exit":"Live latency/availability/reliability/cost signals are captured, validated and bound to guardrails.","gate_impact":"SRE / Cost Gate"},
+    {"id":"RW-012","priority":"P1","axis":"A10","phase_dependency":["Phase 4"],"title":"Formal four-team release approval","status":"WAITING_EVIDENCE","why":"The four-team process exists, but release approval depends on green evidence across all gates.","exit":"Teams 1-4 each record PASS against the same release head and evidence bundle.","gate_impact":"Final Release Gate"},
+    {"id":"RW-013","priority":"P2","axis":"A8","phase_dependency":["Phase 4"],"title":"Production infrastructure verification depth","status":"OPEN","why":"Runtime foundations need broader environment-level verification beyond core provider controls.","exit":"Approved runtime topology, dependency health and degradation behavior are verified in a production-like environment.","gate_impact":"Infrastructure Hardening"},
+    {"id":"RW-014","priority":"P2","axis":"A2","phase_dependency":["Phase 4"],"title":"Operational KPI instrumentation","status":"OPEN","why":"Operational business metrics need durable instrumentation after production journey proof.","exit":"Core operating KPIs are emitted with trace/evidence linkage and reviewed by Product/Business.","gate_impact":"Product Analytics"}
+  ],
+  "release_order": [
+    "RW-001",
+    "RW-002",
+    "RW-003",
+    "RW-004",
+    "RW-005",
+    "RW-006",
+    "RW-007",
+    "RW-008",
+    "RW-009",
+    "RW-010",
+    "RW-011",
+    "RW-012",
+    "RW-013",
+    "RW-014"
+  ]
+}
