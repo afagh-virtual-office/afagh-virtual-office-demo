@@ -3,7 +3,7 @@ services:
     name: afagh-p0-1-runtime
     runtime: node
     plan: starter
-    buildCommand: npm ci --prefix runtime/p0-1
+    buildCommand: npm install --prefix runtime/p0-1 --omit=dev
     startCommand: node runtime/p0-1/migrate.mjs && node runtime/p0-1/server.mjs
     healthCheckPath: /api/v1/health
     envVars:
