@@ -1,0 +1,35 @@
+{
+  "snapshot_type": "controlled-demo-snapshot",
+  "live": false,
+  "source_repository": "afagh-virtual-office/afagh-virtual-office",
+  "reviewed_head": "c93a8fbdb743e8520dd0aae5e5db4823bbae7991",
+  "reviewed_run": 530,
+  "gate": "NOT PASSED",
+  "production": "BLOCKED",
+  "architecture_contracts": {"pass": 27, "total": 27},
+  "runtime_evidence": {"pass": 14, "total": 14},
+  "verifier": {"pass": 56, "total": 58, "blockers": 2},
+  "axes": {
+    "A1": {"level": 2, "status": "BLOCKED"},
+    "A2": {"level": 3, "status": "BLOCKED"},
+    "A3": {"level": 3, "status": "BLOCKED"},
+    "A4": {"level": 3, "status": "BLOCKED"},
+    "A5": {"level": 3, "status": "BLOCKED"},
+    "A6": {"level": 3, "status": "BLOCKED"},
+    "A7": {"level": 3, "status": "BLOCKED"},
+    "A8": {"level": 3, "status": "BLOCKED"},
+    "A9": {"level": 3, "status": "BLOCKED"},
+    "A10": {"level": 3, "status": "BLOCKED"}
+  },
+  "blockers": [
+    {"id": "VERIFIER-001", "title": "ADR status has one source of truth", "status": "BLOCKED", "reason": "ADR-INDEX contains PROPOSED while DECISION_LOG records APPROVED; verifier needs per-ADR parsing."},
+    {"id": "VERIFIER-002", "title": "A3 protocol implementation status must be explicit", "status": "BLOCKED", "reason": "Protocol decision, implementation, credential status, and formal ratification must be machine-verifiable separately."}
+  ],
+  "evidence_sources": [
+    "docs/architecture/ARCHITECTURE-CLOSURE-EVIDENCE.md",
+    "docs/architecture/IMPLEMENTATION_GATE.md",
+    "scripts/verify_architecture_closure.py",
+    ".github/workflows/architecture-gate.yml"
+  ],
+  "note": "This demo snapshot is intentionally not presented as live production telemetry. Green checks are evidence recorded at the reviewed head; unresolved blockers keep Gate 1 blocked."
+}
