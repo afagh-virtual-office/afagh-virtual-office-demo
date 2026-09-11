@@ -3,6 +3,7 @@
   "snapshot_type": "controlled-demo-snapshot",
   "live": false,
   "source_repository": "afagh-virtual-office/afagh-virtual-office",
+  "source_ref": "architecture/closure-program-gate1",
   "reviewed_head": "c93a8fbdb743e8520dd0aae5e5db4823bbae7991",
   "reviewed_run": 530,
   "gate": "NOT PASSED",
@@ -32,5 +33,12 @@
     "scripts/verify_architecture_closure.py",
     ".github/workflows/architecture-gate.yml"
   ],
-  "note": "This demo snapshot is intentionally not presented as live production telemetry. Green checks are evidence recorded at the reviewed head; unresolved blockers keep Gate 1 blocked."
+  "pipeline": {
+    "contract_version": "1.0.0",
+    "upstream_connection": "NOT_CONNECTED",
+    "snapshot_kind": "CONTROLLED",
+    "publication_policy": "VALIDATE_THEN_PUBLISH",
+    "fail_closed": true
+  },
+  "note": "This demo snapshot is intentionally not presented as live production telemetry. The pipeline validates provenance and safety boundaries; it does not manufacture upstream results. Gate 1 remains blocked by the two recorded verifier blockers."
 }
