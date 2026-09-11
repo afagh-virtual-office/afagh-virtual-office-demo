@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: afagh-p0-1-runtime
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --prefix runtime/p0-1
+    startCommand: node runtime/p0-1/migrate.mjs && node runtime/p0-1/server.mjs
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: AFAGH_RUNTIME_MODE
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: afagh-p0-1-db
+          property: connectionString
+      - key: OIDC_ISSUER
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_REDIRECT_URI
+        sync: false
+      - key: SESSION_TTL_SECONDS
+        value: "3600"
+
+databases:
+  - name: afagh-p0-1-db
+    databaseName: afagh_p0_1
+    plan: starter
+    postgresMajorVersion: "18"
