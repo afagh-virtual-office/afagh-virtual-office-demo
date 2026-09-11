@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Phase and evidence traceability for the ten architecture control axes.",
+  "status_model": ["PASS", "PARTIAL", "BLOCKED", "NOT_STARTED", "UNKNOWN"],
+  "flow": ["Intent", "Contract", "Implementation", "Verification", "Evidence", "Gate"],
+  "axes": [
+    {"id":"A1","phase":"Phase 1-2.5","primary_gate":"Architecture baseline + identity/security controls","implementation":["src/platform/identity.ts","src/shared/principal-context.ts"],"verification":"Identity and authorization tests","evidence":"architecture closure evidence","status":"PARTIAL"},
+    {"id":"A2","phase":"Phase 1-3","primary_gate":"Business journeys + acceptance criteria","implementation":["docs/architecture/PHASE-3-OPERATIONAL-EXECUTION.md"],"verification":"Journey and acceptance verification","evidence":"release/evaluation evidence","status":"PARTIAL"},
+    {"id":"A3","phase":"Phase 1-3","primary_gate":"Canonical customer/business evidence","implementation":["src/crm/postgres-customer-command.ts","ai/adapters/crm-customer-tool.ts"],"verification":"CRM/domain journey tests","evidence":"CRM execution evidence","status":"BLOCKED"},
+    {"id":"A4","phase":"Phase 2.5-4","primary_gate":"Governed agent execution contract","implementation":["ai/kernel/contracts.ts","ai/platform/production-intelligence.ts"],"verification":"AI governance and production intelligence tests","evidence":"AI execution evidence","status":"PARTIAL"},
+    {"id":"A5","phase":"Phase 2.5-3","primary_gate":"Observe -> Decide -> Approve -> Execute -> Verify","implementation":["src/operations/operation-runner.ts","src/operations/operation-recovery.ts"],"verification":"Operation/recovery tests","evidence":"operation audit evidence","status":"PARTIAL"},
+    {"id":"A6","phase":"Phase 2.5-4","primary_gate":"Fail-closed + security verification","implementation":["src/platform/identity.ts","ai/platform/production-runtime.ts"],"verification":"security/runtime gate","evidence":"security and failure-injection evidence","status":"PARTIAL"},
+    {"id":"A7","phase":"Phase 2.5-3","primary_gate":"Traceable event + audit provenance","implementation":["src/shared/observability.ts","db/migrations/003_observability.sql"],"verification":"trace/event/audit tests","evidence":"observability evidence","status":"PARTIAL"},
+    {"id":"A8","phase":"Phase 4","primary_gate":"Production runtime + provider health","implementation":["ai/platform/production-runtime.ts","ai/platform/production-intelligence.ts"],"verification":"provider health, circuit breaker and failure injection tests","evidence":"production platform evidence","status":"PARTIAL"},
+    {"id":"A9","phase":"Phase 2.5-4","primary_gate":"Evidence-driven SLI/SLO + cost guard","implementation":["ai/platform/production-intelligence.ts"],"verification":"SLO/cost governance tests","evidence":"production intelligence evidence","status":"PARTIAL"},
+    {"id":"A10","phase":"All phases","primary_gate":"Four-team gate + release evidence","implementation":[".github/workflows/architecture-gate.yml","scripts/architecture-fitness.mjs"],"verification":"architecture gate + four-team review","evidence":"gate artifacts and controlled snapshot","status":"BLOCKED"}
+  ]
+}
