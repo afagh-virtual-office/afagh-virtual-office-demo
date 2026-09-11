@@ -1,0 +1,27 @@
+name: P0-1 Runtime Verification
+on:
+  push:
+    paths:
+      - 'runtime/p0-1/**'
+      - 'contracts/p0-1/**'
+      - '.github/workflows/p0-1-runtime.yml'
+  pull_request:
+    paths:
+      - 'runtime/p0-1/**'
+      - 'contracts/p0-1/**'
+      - '.github/workflows/p0-1-runtime.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime/p0-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: node --check server.mjs && node --check verifier.mjs
+      - name: Evidence verifier
+        run: node verifier.mjs fixtures/auth-001.json fixtures/auth-002.json fixtures/auth-003.json fixtures/auth-004.json fixtures/auth-005.json
