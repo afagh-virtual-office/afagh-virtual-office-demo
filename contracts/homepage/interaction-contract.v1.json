@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://afagh-virtual-office.github.io/contracts/homepage/interaction-contract.v1.json",
+  "schema_version": "homepage.interaction-contract.v1",
+  "principles": {
+    "ui_is_presentation_only": true,
+    "gate_is_immutable_from_ui": true,
+    "evidence_is_immutable_from_ui": true,
+    "fail_closed": true,
+    "tokens_exposed_to_browser": false
+  },
+  "states": ["CONTROLLED", "LIVE", "UNAVAILABLE", "UNKNOWN", "UNVERIFIED"],
+  "interaction_lifecycle": ["intent", "request", "runtime_source", "response_validation", "ui_state", "evidence_reference", "failure_state"],
+  "surfaces": {
+    "command_search": {
+      "mode": "local_navigation_index_until_runtime_search_exists",
+      "request": null,
+      "runtime_source": null,
+      "allowed_targets": ["home", "command", "workforce", "business", "operations", "trust", "tower", "evidence"],
+      "truth_state": "CONTROLLED"
+    },
+    "architecture_axis_detail": {
+      "request": "read-only",
+      "runtime_source": "architecture/evidence source when available",
+      "ui_mutation": false,
+      "truth_state": "CONTROLLED"
+    },
+    "command_center": {
+      "runtime_endpoints": ["/api/v1/health", "/api/v1/auth/evidence"],
+      "credentials_mode": "include",
+      "token_access": false,
+      "metrics_source": "verified runtime response only",
+      "fallback_state": "UNAVAILABLE"
+    },
+    "authentication_context": {
+      "identity_source": "server",
+      "tenant_source": "server",
+      "authorization_source": "server",
+      "client_token_access": false
+    },
+    "audit_event": {
+      "source": "runtime",
+      "client_generated_proof": false,
+      "required_identifiers": ["request_id", "decision_id", "event_id"]
+    },
+    "evidence": {
+      "source": "runtime",
+      "integrity_required": true,
+      "unverified_is_not_proof": true
+    }
+  },
+  "release_rule": "No UI state transition to VERIFIED or PASS without schema-conforming live evidence and successful AUTH-001..AUTH-005 verification."
+}
