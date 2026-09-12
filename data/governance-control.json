@@ -1,0 +1,51 @@
+{
+  "schema_version": "phase2.governance-control.v1",
+  "release_gate": {
+    "status": "BLOCKED",
+    "rule": "Release is blocked unless all mandatory gates are PASS and required evidence is verified.",
+    "source": "runtime-and-evidence-gates"
+  },
+  "teams": [
+    {
+      "id": "T1",
+      "name": "Architecture & Technology",
+      "fa": "معماری و فناوری",
+      "status": "CONDITIONAL",
+      "decision_authority": "Architecture",
+      "open_gates": ["P0-1 Runtime Verification", "Production Persistence"],
+      "required_evidence": ["runtime health", "schema validation", "AUTH-001..005"],
+      "next_action": "Complete production runtime verification"
+    },
+    {
+      "id": "T2",
+      "name": "Domain / Business / Trade",
+      "fa": "دامنه / کسب‌وکار / تجارت",
+      "status": "CONDITIONAL",
+      "decision_authority": "Domain",
+      "open_gates": ["Domain rules", "Business evidence"],
+      "required_evidence": ["domain contracts", "business invariants"],
+      "next_action": "Define and verify domain acceptance gates"
+    },
+    {
+      "id": "T3",
+      "name": "Security / Quality / Governance",
+      "fa": "امنیت / کیفیت / حاکمیت",
+      "status": "CONDITIONAL",
+      "decision_authority": "Security & Governance",
+      "open_gates": ["OIDC hardening", "Audit immutability", "Tenant isolation"],
+      "required_evidence": ["security verification", "audit evidence", "cross-tenant denial"],
+      "next_action": "Close security hardening gates"
+    },
+    {
+      "id": "T4",
+      "name": "AI & Intelligence Architecture",
+      "fa": "معماری هوش مصنوعی و هوشمندی",
+      "status": "CONDITIONAL",
+      "decision_authority": "AI Governance",
+      "open_gates": ["AI governance", "Evaluation evidence"],
+      "required_evidence": ["evaluation results", "model/policy traceability"],
+      "next_action": "Establish AI evaluation and governance evidence"
+    }
+  ],
+  "display_rule": "Team status is derived from gates/evidence; it is not an independent UI claim."
+}
