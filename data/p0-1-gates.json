@@ -1,0 +1,15 @@
+{
+  "schema_version": "p0-1.gate-registry.v1",
+  "release_rule": "P0-1 PASS requires all mandatory gates PASS; unexecuted or unverifiable cases cannot count as PASS.",
+  "runtime": {
+    "health_endpoint": "/api/v1/health",
+    "evidence_endpoint": "/api/v1/auth/evidence"
+  },
+  "gates": [
+    {"id":"AUTH-001","title":"Valid session + allowed resource","mandatory":true,"probe":"evidence-read","expected":{"session":"VALID","decision":"ALLOW","audit":"SUCCESS","integrity":"VERIFIED"}},
+    {"id":"AUTH-002","title":"Expired or revoked session","mandatory":true,"probe":"server-state","expected":{"decision":"DENY","audit":"DENIED"},"requires":"A controlled expired/revoked DB session."},
+    {"id":"AUTH-003","title":"Insufficient permission","mandatory":true,"probe":"evidence-admin","expected":{"decision":"DENY","audit":"DENIED"},"requires":"A subject without office:admin permission."},
+    {"id":"AUTH-004","title":"Tenant isolation","mandatory":true,"probe":"cross-tenant","expected":{"decision":"DENY","audit":"DENIED"},"requires":"At least two tenant memberships and a controlled cross-tenant access attempt."},
+    {"id":"AUTH-005","title":"Tampered or unverifiable evidence","mandatory":true,"probe":"integrity","expected":{"integrity":"UNVERIFIED"},"requires":"A controlled tampering/integrity-verification test; never manufacture VERIFIED evidence."}
+  ]
+}
