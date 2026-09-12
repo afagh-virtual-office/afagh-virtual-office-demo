@@ -1,0 +1,35 @@
+name: Architecture Closure Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-closure:
+    name: Verify VERIFIER-001 / VERIFIER-002
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run architecture closure verifier
+        run: python scripts/verify_architecture_closure.py
+
+      - name: Publish machine-readable result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-closure-verification
+          path: data/architecture-closure-verification.json
+          if-no-files-found: error
