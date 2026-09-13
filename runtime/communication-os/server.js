@@ -1,72 +1,26 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { Pool } from 'pg';
 
-const PORT = Number(process.env.PORT || 8787);
-const BUILD = process.env.SOURCE_BUILD || 'CONTROLLED_RUNTIME_0.1.0';
-const events = new Map();
-const actions = new Map();
-
-const STATES = {
-  communication: new Set(['OFFERED','ROUTING','QUEUED','RINGING','CONNECTED','ACTIVE','TRANSFERRING','COMPLETED','MISSED','REJECTED','FAILED','CANCELLED','BLOCKED']),
-  ai: new Set(['RECOMMENDATION','DECISION_PROPOSAL','APPROVED_ACTION','EXECUTING','COMPLETED','DENIED','EXPIRED','CANCELLED','FAILED','BLOCKED'])
-};
-
-const transitions = {
-  OFFERED:['ROUTING','REJECTED','CANCELLED','BLOCKED'], ROUTING:['QUEUED','RINGING','FAILED','BLOCKED'],
-  QUEUED:['RINGING','CANCELLED','BLOCKED'], RINGING:['CONNECTED','MISSED','REJECTED','FAILED'],
-  CONNECTED:['ACTIVE','TRANSFERRING','COMPLETED','FAILED'], ACTIVE:['TRANSFERRING','COMPLETED','FAILED'],
-  TRANSFERRING:['RINGING','ACTIVE','FAILED'], COMPLETED:[], MISSED:[], REJECTED:[], FAILED:[], CANCELLED:[], BLOCKED:[]
-};
-
-function json(res, status, body) {
-  res.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store'});
-  res.end(JSON.stringify(body));
-}
-function read(req) { return new Promise((resolve,reject)=>{let s=''; req.on('data',c=>s+=c); req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}});}); }
-function id(prefix){return `${prefix}_${crypto.randomUUID()}`;}
-function evidence(correlation_id, state='CONTROLLED') { return {evidence_id:id('ev'), evidence_type:'runtime_event', source:'communication-os-runtime', verifier:'runtime-contract-engine', state, integrity:'UNSIGNED_CONTROLLED', provenance:'server-generated', correlation_id, source_build:BUILD, generated_at:new Date().toISOString(), verified_at:null}; }
-function policy(body){
-  const required=['subject','identity_class','capability','resource','data_class','action','tenant','workspace','region','assurance','policy_version'];
-  if(required.some(k=>!body[k])) return {decision:'DENY',reason:'MISSING_AUTHORITATIVE_CONTEXT'};
-  if(!['IRAN','CHINA'].includes(body.region)) return {decision:'DENY',reason:'REGION_NOT_ALLOWED'};
-  return {decision:'ALLOW',reason:'CONTROLLED_POLICY_MATCH'};
-}
-
-async function handler(req,res){
-  const url=new URL(req.url,`http://${req.headers.host}`);
-  if(req.method==='GET' && url.pathname==='/api/v1/communication/health') return json(res,200,{status:'CONTROLLED',runtime:'communication-os',build:BUILD,production_verified:false});
-  if(req.method==='GET' && url.pathname==='/api/v1/communication/events') return json(res,200,{items:[...events.values()],count:events.size});
-  if(req.method==='GET' && url.pathname==='/api/v1/communication/actions') return json(res,200,{items:[...actions.values()],count:actions.size});
-  if(req.method!=='POST') return json(res,404,{error:'NOT_FOUND'});
-  let body; try{body=await read(req)}catch{return json(res,400,{error:'INVALID_JSON'});}
-
-  if(url.pathname==='/api/v1/communication/policy/decide') {
-    const decision=policy(body); const record={decision_id:id('pd'),...body,...decision,timestamp:new Date().toISOString()};
-    return json(res,decision.decision==='ALLOW'?200:403,{policy_decision:record,evidence:evidence(body.correlation_id||id('corr'))});
-  }
-
-  if(url.pathname==='/api/v1/communication/events') {
-    const required=['communication_id','channel','actor','participants','tenant','workspace','region','correlation_id','policy_decision_id','authorization_decision_id'];
-    const missing=required.filter(k=>!body[k]); if(missing.length) return json(res,422,{error:'CONTRACT_VIOLATION',contract:'COM-C03',missing});
-    const event={event_id:id('evt'),...body,lifecycle_state:'OFFERED',source_build:BUILD,timestamp:new Date().toISOString()}; events.set(event.event_id,event);
-    return json(res,201,{event,evidence:evidence(event.correlation_id)});
-  }
-
-  if(url.pathname.startsWith('/api/v1/communication/events/') && url.pathname.endsWith('/transition')) {
-    const eventId=url.pathname.split('/')[5]; const event=events.get(eventId); if(!event) return json(res,404,{error:'EVENT_NOT_FOUND'});
-    const next=body.state; if(!STATES.communication.has(next) || !transitions[event.lifecycle_state]?.includes(next)) return json(res,409,{error:'INVALID_STATE_TRANSITION',from:event.lifecycle_state,to:next});
-    event.lifecycle_state=next; event.timestamp=new Date().toISOString(); events.set(eventId,event); return json(res,200,{event,evidence:evidence(event.correlation_id)});
-  }
-
-  if(url.pathname==='/api/v1/communication/actions') {
-    const required=['agent_id','risk_tier','policy_version','approval','tool_scope','model','correlation_id','idempotency_key'];
-    const missing=required.filter(k=>!body[k]); if(missing.length) return json(res,422,{error:'CONTRACT_VIOLATION',contract:'COM-C04',missing});
-    if(body.approval!=='HUMAN_APPROVED' && body.risk_tier!=='LOW') return json(res,403,{error:'FAIL_CLOSED',reason:'APPROVAL_REQUIRED'});
-    const action={action_id:id('act'),...body,action_state:'APPROVED_ACTION',timestamp:new Date().toISOString()}; actions.set(action.action_id,action);
-    return json(res,201,{action,evidence:evidence(action.correlation_id)});
-  }
-
-  return json(res,404,{error:'NOT_FOUND'});
-}
-
-http.createServer(handler).listen(PORT,()=>console.log(`Communication OS runtime listening on ${PORT}`));
+const PORT=Number(process.env.PORT||8787), BUILD=process.env.SOURCE_BUILD||'COMMUNICATION_OS_RUNTIME_0.2.0', DATABASE_URL=process.env.DATABASE_URL;
+if(!DATABASE_URL) throw new Error('DATABASE_URL is required');
+const pool=new Pool({connectionString:DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false}});
+const id=()=>crypto.randomUUID(), now=()=>new Date().toISOString();
+const transitions={OFFERED:['ROUTING','REJECTED','CANCELLED','BLOCKED'],ROUTING:['QUEUED','RINGING','FAILED','BLOCKED'],QUEUED:['RINGING','CANCELLED','BLOCKED'],RINGING:['CONNECTED','MISSED','REJECTED','FAILED'],CONNECTED:['ACTIVE','TRANSFERRING','COMPLETED','FAILED'],ACTIVE:['TRANSFERRING','COMPLETED','FAILED'],TRANSFERRING:['RINGING','ACTIVE','FAILED']};
+function send(res,status,body,headers={}){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','access-control-allow-origin':process.env.CORS_ORIGIN||'*','access-control-allow-credentials':'true',...headers});res.end(JSON.stringify(body));}
+function cookie(req,n){const m=(req.headers.cookie||'').match(new RegExp(`(?:^|; )${n}=([^;]+)`));return m?decodeURIComponent(m[1]):null;}
+async function auth(req){const sid=cookie(req,'afagh_session');if(!sid)return null;const r=await pool.query('SELECT session_id,subject_id,display_name,tenant_id,workspace_id,roles,permissions,expires_at,revoked_at FROM sessions WHERE session_id=$1',[sid]);if(!r.rowCount)return null;const s=r.rows[0];if(s.revoked_at||new Date(s.expires_at)<=new Date())return null;return s;}
+async function audit(s,correlation_id,outcome,resource,action){await pool.query('INSERT INTO audit_events(event_id,request_id,actor_subject_id,tenant_id,workspace_id,event_type,resource,action,outcome,timestamp) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now())',[id(),correlation_id,s?.subject_id||'anonymous',s?.tenant_id||'unknown',s?.workspace_id||'unknown','COMMUNICATION_RUNTIME',resource,action,outcome]);}
+function evidence(correlation_id,state='CONTROLLED'){return {evidence_id:id(),evidence_type:'communication_runtime',source:'afagh-communication-os-runtime',verifier:'runtime-contract-engine',state,integrity:'UNSIGNED_CONTROLLED',provenance:'postgres-backed-server-generated',correlation_id,source_build:BUILD,generated_at:now(),verified_at:null};}
+async function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>s+=c);req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}})});}
+async function policy(b,s){const required=['identity_class','capability','resource','data_class','action','region','assurance','policy_version'];if(!s)return {decision:'DENY',reason:'AUTHENTICATION_REQUIRED'};if(required.some(k=>!b[k]))return {decision:'DENY',reason:'MISSING_AUTHORITATIVE_CONTEXT'};if(!['IRAN','CHINA'].includes(b.region))return {decision:'DENY',reason:'REGION_NOT_ALLOWED'};const permissions=s.permissions||[];const requiredPermission=b.action==='read'?'office:read':b.action==='write'?'office:write':'office:admin';if(!permissions.includes(requiredPermission))return {decision:'DENY',reason:'PERMISSION_DENIED'};return {decision:'ALLOW',reason:'POLICY_MATCH'};}
+async function main(req,res){const u=new URL(req.url,`http://${req.headers.host}`);if(req.method==='OPTIONS')return send(res,204,{});if(req.method==='GET'&&u.pathname==='/api/v1/communication/health')return send(res,200,{service:'afagh-communication-os-runtime',status:'CONTROLLED',build:BUILD,persistence:'POSTGRES',authentication:'P0-1_SESSION',production_verified:false});const s=await auth(req);
+if(req.method==='GET'&&u.pathname==='/api/v1/communication/events'){const r=await pool.query('SELECT * FROM communication_events ORDER BY created_at DESC LIMIT 100');return send(res,200,{items:r.rows,count:r.rowCount,auth:s?'VALID':'UNKNOWN'});}
+if(req.method==='GET'&&u.pathname==='/api/v1/communication/actions'){const r=await pool.query('SELECT * FROM communication_actions ORDER BY created_at DESC LIMIT 100');return send(res,200,{items:r.rows,count:r.rowCount,auth:s?'VALID':'UNKNOWN'});}
+if(req.method!=='POST')return send(res,404,{error:'NOT_FOUND'});let b;try{b=await body(req)}catch{return send(res,400,{error:'INVALID_JSON'})};
+if(u.pathname==='/api/v1/communication/policy/decide'){const correlation_id=b.correlation_id||id(),d=await policy(b,s),decision_id=id();await pool.query('INSERT INTO communication_policy_decisions(decision_id,subject,identity_class,capability,resource,data_class,action,tenant_id,workspace_id,region,assurance,policy_version,decision,reason,correlation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',[decision_id,s?.subject_id||b.subject||'anonymous',b.identity_class,b.capability,b.resource,b.data_class,b.action,s?.tenant_id||b.tenant,s?.workspace_id||b.workspace,b.region,b.assurance,b.policy_version,d.decision,d.reason,correlation_id]);await audit(s,correlation_id,d.decision,'policy','decide');return send(res,d.decision==='ALLOW'?200:403,{policy_decision:{decision_id,...d,correlation_id,policy_version:b.policy_version},evidence:evidence(correlation_id)});}
+if(u.pathname==='/api/v1/communication/events'){if(!s)return send(res,401,{error:'AUTHENTICATION_REQUIRED'});const reqd=['communication_id','channel','actor','participants','tenant','workspace','region','correlation_id','policy_decision_id','authorization_decision_id'],missing=reqd.filter(k=>b[k]===undefined);if(missing.length)return send(res,422,{error:'CONTRACT_VIOLATION',contract:'COM-C03',missing});if(String(b.tenant)!==String(s.tenant_id)||String(b.workspace)!==String(s.workspace_id))return send(res,403,{error:'TENANT_WORKSPACE_MISMATCH'});const event_id=id();await pool.query('INSERT INTO communication_events(event_id,communication_id,channel,direction,actor,participants,tenant_id,workspace_id,region,lifecycle_state,correlation_id,policy_decision_id,authorization_decision_id,source_build) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[event_id,b.communication_id,b.channel,b.direction||null,JSON.stringify(b.actor),JSON.stringify(b.participants),s.tenant_id,s.workspace_id,b.region,'OFFERED',b.correlation_id,b.policy_decision_id,b.authorization_decision_id,BUILD]);await audit(s,b.correlation_id,'SUCCESS','communication_event','create');return send(res,201,{event:{event_id,...b,tenant_id:s.tenant_id,workspace_id:s.workspace_id,lifecycle_state:'OFFERED',source_build:BUILD},evidence:evidence(b.correlation_id)});}
+if(u.pathname.startsWith('/api/v1/communication/events/')&&u.pathname.endsWith('/transition')){if(!s)return send(res,401,{error:'AUTHENTICATION_REQUIRED'});const event_id=u.pathname.split('/')[5],r=await pool.query('SELECT * FROM communication_events WHERE event_id=$1',[event_id]);if(!r.rowCount)return send(res,404,{error:'EVENT_NOT_FOUND'});const e=r.rows[0],next=b.state;if(String(e.tenant_id)!==String(s.tenant_id)||String(e.workspace_id)!==String(s.workspace_id))return send(res,403,{error:'TENANT_WORKSPACE_MISMATCH'});if(!transitions[e.lifecycle_state]?.includes(next))return send(res,409,{error:'INVALID_STATE_TRANSITION',from:e.lifecycle_state,to:next});await pool.query('UPDATE communication_events SET lifecycle_state=$1,updated_at=now() WHERE event_id=$2',[next,event_id]);await audit(s,e.correlation_id,'SUCCESS','communication_event','transition');return send(res,200,{event:{...e,lifecycle_state:next},evidence:evidence(e.correlation_id)});}
+if(u.pathname==='/api/v1/communication/actions'){if(!s)return send(res,401,{error:'AUTHENTICATION_REQUIRED'});const reqd=['agent_id','risk_tier','policy_version','approval','tool_scope','model','correlation_id','idempotency_key'],missing=reqd.filter(k=>b[k]===undefined);if(missing.length)return send(res,422,{error:'CONTRACT_VIOLATION',contract:'COM-C04',missing});if(b.risk_tier!=='LOW'&&b.approval!=='HUMAN_APPROVED')return send(res,403,{error:'FAIL_CLOSED',reason:'APPROVAL_REQUIRED'});const action_id=id();try{await pool.query('INSERT INTO communication_actions(action_id,agent_id,action_state,risk_tier,policy_version,approval,tool_scope,model,correlation_id,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[action_id,b.agent_id,'APPROVED_ACTION',b.risk_tier,b.policy_version,b.approval,JSON.stringify(b.tool_scope),b.model,b.correlation_id,b.idempotency_key])}catch(e){if(e.code==='23505')return send(res,409,{error:'IDEMPOTENCY_CONFLICT'});throw e}await audit(s,b.correlation_id,'SUCCESS','ai_action','approve');return send(res,201,{action:{action_id,...b,action_state:'APPROVED_ACTION'},evidence:evidence(b.correlation_id)});}
+return send(res,404,{error:'NOT_FOUND'});}
+http.createServer((req,res)=>main(req,res).catch(e=>{console.error(e);send(res,500,{error:'internal_error'});})).listen(PORT,()=>console.log(`Communication OS runtime :${PORT}`));
