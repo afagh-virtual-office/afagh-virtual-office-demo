@@ -1,0 +1,23 @@
+{
+  "version": "communication-os-four-team-challenge.v1",
+  "status": "BLOCKED",
+  "rule": "No P0 approval without executable verification evidence.",
+  "teams": [
+    {"id":"T1","name":"Architecture & Technology"},
+    {"id":"T2","name":"Domain / Business / Trade"},
+    {"id":"T3","name":"Security / Quality / Governance"},
+    {"id":"T4","name":"AI & Intelligence Architecture"}
+  ],
+  "contracts": [
+    {"id":"COM-C01","challenge":"Identity authority, lifecycle, scope and source must be authoritative; phone/number alone cannot establish identity.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["authoritative identity source not runtime-verified","tenant/workspace membership enforcement not proven"]},
+    {"id":"COM-C02","challenge":"Channel adapters must expose normalized capabilities while isolating provider credentials and regional constraints.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["provider adapter contract not executable","credential isolation not runtime-proven"]},
+    {"id":"COM-C03","challenge":"Communication events require complete correlation, policy, authorization and lifecycle integrity.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["transition enforcement and immutable event evidence not verified"]},
+    {"id":"COM-C04","challenge":"AI action must remain separated from authorization and execution, with exact tool scope and idempotency.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"BLOCKED","gate":"BLOCKED","blockers":["human/autonomous approval policy not executable","tool-scope enforcement not verified"]},
+    {"id":"COM-C05","challenge":"Policy decisions must be deny-by-default and evaluate subject, capability, resource, data, tenant, workspace, region and assurance.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["policy decision point is not production-backed","negative authorization tests not executed"]},
+    {"id":"COM-C06","challenge":"Workforce assignment must be an explicit orchestration decision and must not grant authorization.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["assignment-to-authorization separation not runtime-proven"]},
+    {"id":"COM-C07","challenge":"Evidence must prove provenance, correlation and verification state without treating controlled snapshots as production truth.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"BLOCKED","gate":"BLOCKED","blockers":["cryptographic integrity/signing not implemented","production verification source unavailable"]},
+    {"id":"COM-C08","challenge":"Iran/China operation modes must fail closed during degradation/isolation and preserve residency, authorization, audit and recovery invariants.","T1":"REVISE","T2":"REVISE","T3":"BLOCKED","T4":"REVISE","gate":"BLOCKED","blockers":["regional policy enforcement not executable","failover/recovery evidence absent"]}
+  ],
+  "overall_decision":"BLOCKED",
+  "next_gate":"Implement runtime contract enforcement and executable API verification before any production claim."
+}
