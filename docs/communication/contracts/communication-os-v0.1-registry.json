@@ -1,0 +1,16 @@
+{
+  "version": "communication-os-contracts.v0.1",
+  "status": "DRAFT",
+  "contracts": [
+    {"id":"COM-C01","name":"communication_identity","authority":"identity_authority","required":["identity_id","identity_class","lifecycle_state","scope","source","version"]},
+    {"id":"COM-C02","name":"communication_channel","authority":"communication_fabric_authority","required":["channel_id","channel_type","provider","capabilities","region","status"]},
+    {"id":"COM-C03","name":"communication_event","authority":"event_authority","required":["event_id","communication_id","channel","actor","participants","lifecycle_state","tenant","workspace","region","correlation_id","policy_decision_id","authorization_decision_id","source_build","timestamp"]},
+    {"id":"COM-C04","name":"ai_action","authority":"ai_policy_decision_point","required":["action_id","agent_id","action_state","risk_tier","policy_version","approval","tool_scope","model","correlation_id","idempotency_key","timestamp"]},
+    {"id":"COM-C05","name":"policy_decision","authority":"authorization_policy_authority","required":["decision_id","subject","identity_class","capability","resource","data_class","action","tenant","workspace","region","assurance","policy_version","decision","timestamp"]},
+    {"id":"COM-C06","name":"workforce_assignment","authority":"workforce_orchestrator","required":["assignment_id","target_type","target_id","skills","queue","reason","authorization_decision_id","correlation_id","state","timestamp"]},
+    {"id":"COM-C07","name":"evidence","authority":"verification_authority","required":["evidence_id","evidence_type","source","verifier","state","integrity","provenance","correlation_id","source_build","generated_at","verified_at"]},
+    {"id":"COM-C08","name":"regional_operation","authority":"regional_policy_platform_authority","required":["region","mode","policy_version","dependencies","residency_profile","connectivity_profile","recovery_priority","clock_status","timestamp"]}
+  ],
+  "verification_states":["PLANNED","SIMULATED","CONTROLLED","EXECUTED","PRODUCTION_VERIFIED"],
+  "evidence_states":["PASS","BLOCKED","UNKNOWN","UNVERIFIED","CONTROLLED","NOT_LIVE"]
+}
