@@ -1,0 +1,17 @@
+{
+  "version": "requirements-verification.v0.3",
+  "status": "BLOCKED",
+  "rule": "A P0 contract cannot close without an owner, enforcement authority, positive verification, negative verification, and evidence reference.",
+  "contracts": [
+    {"contract_id":"C-001","family":"RB-001","authority":"Policy Enforcement Point","owner":"Architecture/Security","negative_tests":["public_to_enterprise","cross_tenant","wrong_region","forged_client_role","unscoped_service_call"]},
+    {"contract_id":"C-002","family":"RB-002","authority":"Identity and Authorization Services","owner":"Identity/Security","negative_tests":["revoked_identity","stale_decision","implicit_delegation","invalid_lifecycle_transition","unauthorized_privileged_access"]},
+    {"contract_id":"C-003","family":"RB-003","authority":"Data Authority Registry","owner":"Data/Integration","negative_tests":["conflicting_source","duplicate_delivery","out_of_order_event","unauthorized_authority_change","stale_projection"]},
+    {"contract_id":"C-004","family":"RB-004","authority":"Regional Policy and Platform Control","owner":"Platform/Operations","negative_tests":["control_bypass_during_degraded_mode","duplicate_recovery_action","invalid_region_transfer","clock_bound_violation"]},
+    {"contract_id":"C-005","family":"RB-005","authority":"AI Policy Decision Point","owner":"AI/Security","negative_tests":["agent_self_authorization","expired_approval","replayed_action","overscoped_tool","prompt_injection_authorization"]},
+    {"contract_id":"C-006","family":"RB-006","authority":"Verification Authority","owner":"Governance/Verification","negative_tests":["manual_pass","replayed_evidence","stale_evidence","invalid_verifier","integrity_claim_mismatch"]},
+    {"contract_id":"C-007","family":"RB-007","authority":"Architecture and Business Reliability Authority","owner":"Platform/Operations/Business","negative_tests":["rto_breach","rpo_breach","rollback_without_build_identity","duplicate_recovery_action","unsafe_ai_degrade"]},
+    {"contract_id":"C-008","family":"RB-008","authority":"Architecture Governance Gate","owner":"Architecture Governance","negative_tests":["missing_owner","missing_decision","missing_component","missing_verification","unresolved_evidence","superseded_evidence"]}
+  ],
+  "required_result_fields":["contract_id","test_id","expected_state","actual_state","verification_state","runtime_build","timestamp","correlation_id","evidence_id"],
+  "closure_rule":"All mandatory P0 tests pass and every result resolves to current non-superseded evidence; otherwise status remains OPEN or BLOCKED."
+}
