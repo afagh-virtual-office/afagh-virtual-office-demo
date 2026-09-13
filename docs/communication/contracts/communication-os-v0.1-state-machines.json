@@ -1,0 +1,17 @@
+{
+  "version":"communication-os-state-machines.v0.1",
+  "machines":{
+    "communication_event":{"initial":"OFFERED","states":["OFFERED","ROUTING","QUEUED","RINGING","CONNECTED","ACTIVE","TRANSFERRING","COMPLETED","MISSED","REJECTED","FAILED","CANCELLED","BLOCKED"]},
+    "ai_action":{"initial":"RECOMMENDATION","states":["RECOMMENDATION","DECISION_PROPOSAL","APPROVED_ACTION","EXECUTING","COMPLETED","DENIED","EXPIRED","CANCELLED","FAILED","BLOCKED"]},
+    "identity":{"initial":"PROVISIONING","states":["PROVISIONING","ACTIVE","SUSPENDED","REVOKED","RETIRED"]},
+    "regional_operation":{"initial":"NORMAL","states":["NORMAL","DEGRADED","ISOLATED","RECOVERING"]},
+    "evidence":{"states":["PASS","BLOCKED","UNKNOWN","UNVERIFIED","CONTROLLED","NOT_LIVE"]}
+  },
+  "rules":[
+    "AI recommendation cannot transition directly to execution.",
+    "APPROVED_ACTION requires an authoritative policy decision and authorization.",
+    "BLOCKED and DENIED are terminal for the current action attempt.",
+    "Evidence PASS requires an authoritative verifier.",
+    "Regional degraded or isolated modes cannot bypass authorization, audit, or evidence controls."
+  ]
+}
