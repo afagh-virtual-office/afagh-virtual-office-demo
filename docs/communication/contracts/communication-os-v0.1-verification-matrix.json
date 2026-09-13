@@ -1,0 +1,16 @@
+{
+  "version":"communication-os-verification.v0.1",
+  "status":"BLOCKED",
+  "closure_rule":"Every P0 contract requires owner, enforcement authority, positive verification, mandatory negative verification, and current evidence.",
+  "contracts":[
+    {"id":"COM-C01","positive":["identity_resolution","lifecycle_enforcement","scope_binding"],"negative":["forged_identity","revoked_identity","number_as_authority"]},
+    {"id":"COM-C02","positive":["channel_adapter_contract","provider_isolation","region_binding"],"negative":["unauthorized_provider_use","credential_exposure","unsupported_channel_claim"]},
+    {"id":"COM-C03","positive":["event_lifecycle","correlation_chain","terminal_state"],"negative":["duplicate_terminal_event","missing_actor","missing_correlation"]},
+    {"id":"COM-C04","positive":["ai_action_lifecycle","approval_enforcement","tool_scope"],"negative":["agent_self_authorization","expired_approval","replay","overscoped_tool"]},
+    {"id":"COM-C05","positive":["deterministic_policy_decision","deny_by_default","context_binding"],"negative":["forged_role","cross_tenant","wrong_region","stale_context"]},
+    {"id":"COM-C06","positive":["assignment_authorization","skill_routing","escalation"],"negative":["unauthorized_assignment","authorization_by_assignment","stale_assignment"]},
+    {"id":"COM-C07","positive":["evidence_generation","authoritative_verification","correlation"],"negative":["manual_pass","stale_evidence","invalid_verifier","integrity_mismatch"]},
+    {"id":"COM-C08","positive":["regional_mode_transition","recovery","control_preservation"],"negative":["control_bypass","duplicate_recovery_action","invalid_transfer","clock_violation"]}
+  ],
+  "required_result_fields":["contract_id","test_id","expected_state","actual_state","verification_state","runtime_build","timestamp","correlation_id","evidence_id"]
+}
