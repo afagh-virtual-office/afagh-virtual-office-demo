@@ -14,9 +14,11 @@ const migrationName = '001_communication_os';
 const sql = await fs.readFile(new URL('./migrations/001_communication_os.sql', import.meta.url), 'utf8');
 const checksum = crypto.createHash('sha256').update(sql).digest('hex');
 const client = await pool.connect();
+let lockHeld = false;
 
 try {
   await client.query('SELECT pg_advisory_lock(hashtext($1))', ['afagh:communication-os:migrations']);
+  lockHeld = true;
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       migration_name TEXT PRIMARY KEY,
@@ -35,22 +37,25 @@ try {
       throw new Error(`MIGRATION_CHECKSUM_MISMATCH:${migrationName}`);
     }
     console.log(`Communication OS migration ${migrationName} already applied`);
-    return;
+  } else {
+    await client.query('BEGIN');
+    try {
+      await client.query(sql);
+      await client.query(
+        'INSERT INTO schema_migrations(migration_name,checksum_sha256) VALUES($1,$2)',
+        [migrationName, checksum],
+      );
+      await client.query('COMMIT');
+      console.log(`Communication OS migration ${migrationName} applied`);
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch {}
+      throw error;
+    }
   }
-
-  await client.query('BEGIN');
-  await client.query(sql);
-  await client.query(
-    'INSERT INTO schema_migrations(migration_name,checksum_sha256) VALUES($1,$2)',
-    [migrationName, checksum],
-  );
-  await client.query('COMMIT');
-  console.log(`Communication OS migration ${migrationName} applied`);
-} catch (error) {
-  try { await client.query('ROLLBACK'); } catch {}
-  throw error;
 } finally {
-  try { await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['afagh:communication-os:migrations']); } catch {}
+  if (lockHeld) {
+    try { await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['afagh:communication-os:migrations']); } catch {}
+  }
   client.release();
   await pool.end();
 }
