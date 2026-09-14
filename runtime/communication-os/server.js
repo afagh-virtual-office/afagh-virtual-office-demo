@@ -1,3 +1,5 @@
+await import('./migrate.mjs');
+
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { Pool } from 'pg';
