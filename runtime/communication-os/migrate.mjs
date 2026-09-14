@@ -10,15 +10,14 @@ const pool = new Pool({
   ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false },
 });
 
-const migrationName = '001_communication_os';
-const sql = await fs.readFile(new URL('./migrations/001_communication_os.sql', import.meta.url), 'utf8');
-const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+const migrationDir = new URL('./migrations/', import.meta.url);
 const client = await pool.connect();
 let lockHeld = false;
 
 try {
   await client.query('SELECT pg_advisory_lock(hashtext($1))', ['afagh:communication-os:migrations']);
   lockHeld = true;
+
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       migration_name TEXT PRIMARY KEY,
@@ -27,17 +26,29 @@ try {
     )
   `);
 
-  const existing = await client.query(
-    'SELECT checksum_sha256 FROM schema_migrations WHERE migration_name=$1',
-    [migrationName],
-  );
+  const files = (await fs.readdir(migrationDir))
+    .filter((name) => name.endsWith('.sql'))
+    .sort((a, b) => a.localeCompare(b));
 
-  if (existing.rowCount) {
-    if (existing.rows[0].checksum_sha256 !== checksum) {
-      throw new Error(`MIGRATION_CHECKSUM_MISMATCH:${migrationName}`);
+  if (!files.length) throw new Error('NO_MIGRATIONS_FOUND');
+
+  for (const file of files) {
+    const migrationName = file.replace(/\.sql$/, '');
+    const sql = await fs.readFile(new URL(file, migrationDir), 'utf8');
+    const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+    const existing = await client.query(
+      'SELECT checksum_sha256 FROM schema_migrations WHERE migration_name=$1',
+      [migrationName],
+    );
+
+    if (existing.rowCount) {
+      if (existing.rows[0].checksum_sha256 !== checksum) {
+        throw new Error(`MIGRATION_CHECKSUM_MISMATCH:${migrationName}`);
+      }
+      console.log(`Communication OS migration ${migrationName} already applied`);
+      continue;
     }
-    console.log(`Communication OS migration ${migrationName} already applied`);
-  } else {
+
     await client.query('BEGIN');
     try {
       await client.query(sql);
@@ -54,7 +65,9 @@ try {
   }
 } finally {
   if (lockHeld) {
-    try { await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['afagh:communication-os:migrations']); } catch {}
+    try {
+      await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['afagh:communication-os:migrations']);
+    } catch {}
   }
   client.release();
   await pool.end();
