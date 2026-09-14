@@ -25,6 +25,17 @@ jobs:
         uses: actions/checkout@v6
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Bind homepage to runtime health
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<script src="runtime/homepage-runtime-binding.js"></script>'
+          if marker not in s:
+              s = s.replace('</body>', f'{marker}</body>')
+              p.write_text(s, encoding='utf-8')
+          PY
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
