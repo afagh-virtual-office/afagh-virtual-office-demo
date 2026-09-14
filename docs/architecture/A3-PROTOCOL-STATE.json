@@ -1,0 +1,20 @@
+{
+  "protocol": "AFAGH-A3",
+  "version": "1.0",
+  "status": "CONTROLLED_RUNTIME_PENDING_VERIFICATION",
+  "gates": {
+    "architecture_baseline": "PASS",
+    "requirements_contracts": "REVISE",
+    "database_connection": "PENDING_DEPLOY",
+    "migration": "PENDING_DB_PROOF",
+    "communication_schema": "PENDING_DB_PROOF",
+    "auth_e2e": "PENDING_EXTERNAL_IDP",
+    "evidence_verification": "PENDING_RUNTIME_PROOF",
+    "production": "BLOCKED"
+  },
+  "transition_rules": [
+    "No gate may transition to PASS without runtime or externally verifiable evidence.",
+    "Production may transition to PASS only after database, migration, auth E2E and evidence verification are PASS.",
+    "UI state is not evidence of production verification."
+  ]
+}
