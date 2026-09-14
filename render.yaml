@@ -42,8 +42,6 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
-      - key: PGSSL
-        value: disable
 
 databases:
   - name: afagh-p0-1-db
