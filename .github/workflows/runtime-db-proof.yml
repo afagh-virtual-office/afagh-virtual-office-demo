@@ -1,0 +1,51 @@
+name: Runtime DB Proof Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/communication-os/**'
+      - '.github/workflows/runtime-db-proof.yml'
+  pull_request:
+    paths:
+      - 'runtime/communication-os/**'
+      - '.github/workflows/runtime-db-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  db-proof:
+    name: Verify live runtime database proof
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query runtime proof endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://afagh-communication-os-runtime.onrender.com/api/v1/communication/proof/db'
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 "$url" -o proof.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('proof.json').read_text())
+          assert p.get('production_verified') is False, 'Runtime must not self-assert production verification'
+          assert p.get('proof_type') == 'DB_RUNTIME_PROOF', 'Unexpected proof type'
+          assert p.get('connection', {}).get('ok') is True, 'Database connection proof failed'
+          assert p.get('communication_tables', {}).get('complete') is True, 'Communication schema is incomplete'
+          assert p.get('migrations', {}).get('count', 0) >= 1, 'No applied migration proof found'
+          print(json.dumps({
+            'proof_type': p['proof_type'],
+            'database_name': p['connection'].get('database_name'),
+            'migration_count': p['migrations'].get('count'),
+            'communication_tables_complete': p['communication_tables'].get('complete'),
+            'production_verified': p['production_verified']
+          }, indent=2))
+          PY
+          cat proof.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish gate result
+        run: |
+          echo 'PASS: live runtime database proof is externally verified by CI.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Boundary: this closes DB proof only; it does not authorize production release.' >> "$GITHUB_STEP_SUMMARY"
