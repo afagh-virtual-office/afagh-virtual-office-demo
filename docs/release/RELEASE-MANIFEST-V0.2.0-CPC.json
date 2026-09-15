@@ -5,7 +5,7 @@
   "decision": "BLOCKED_UNTIL_RUNTIME_EVIDENCE",
   "date": "2026-09-15",
   "repository": "afagh-virtual-office/afagh-virtual-office-demo",
-  "head_commit": "a9270c204af1cddee8a9b5e7a24911cad19668cd",
+  "head_commit": "23dd6d86206fc7a15b37af5bf3e7e2ccba55da8e",
   "governance": ["T1", "T2", "T3", "T4"],
   "gates": {
     "db_connection": "CONDITIONALLY_READY",
