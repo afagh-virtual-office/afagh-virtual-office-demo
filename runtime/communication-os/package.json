@@ -1,6 +1,6 @@
 {
   "name": "afagh-communication-os-runtime",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {"start": "node migrate.mjs && node server.js", "migrate": "node migrate.mjs", "verify": "node contract-smoke-test.mjs"},
