@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "status": "FINAL_INFRASTRUCTURE_BASELINE",
+  "production_activation": "PENDING_PROVIDER_CREDENTIALS_AND_E2E_EVIDENCE",
+  "channels": [
+    {"id":"voice","name":"Cloud Voice / SIP / WebRTC","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"VOICE_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"email","name":"Email","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"EMAIL_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"sms","name":"SMS","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"SMS_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"telegram","name":"Telegram","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"TELEGRAM_BOT_SECRET_REF","webhook_required":true},
+    {"id":"whatsapp","name":"WhatsApp","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"WHATSAPP_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"instagram","name":"Instagram Business Messaging","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"INSTAGRAM_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"shad","name":"Shad","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"SHAD_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"bale","name":"Bale","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"BALE_PROVIDER_SECRET_REF","webhook_required":true},
+    {"id":"rubika","name":"Rubika","directions":["inbound","outbound"],"adapter":"channel-adapter-v1","secret_ref":"RUBIKA_PROVIDER_SECRET_REF","webhook_required":true}
+  ],
+  "common_flow":["identity_context","intent","recommendation","policy_check","authorization","routing","adapter_execute","provider_result","retry_or_escalate","audit","evidence"],
+  "campaign_controls":["consent_or_permission","opt_out","frequency_limit","regional_policy","template_version","approval","audit"],
+  "ai_boundary":{"direct_unrestricted_send":false,"policy_required":true,"approval_required_for_consequential_actions":true},
+  "truth_model":["PASS","BLOCKED","UNKNOWN","UNVERIFIED","CONTROLLED","NOT_LIVE"]
+}
