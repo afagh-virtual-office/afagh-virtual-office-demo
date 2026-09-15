@@ -1,0 +1,36 @@
+{
+  "release": "v0.2.0-CPC",
+  "release_class": "CONTROLLED_PRODUCTION_CANDIDATE",
+  "production_release": false,
+  "decision": "BLOCKED_UNTIL_RUNTIME_EVIDENCE",
+  "date": "2026-09-15",
+  "repository": "afagh-virtual-office/afagh-virtual-office-demo",
+  "head_commit": "79212bdecba1ae0bbb731c05876a41f6b8f92294",
+  "governance": ["T1", "T2", "T3", "T4"],
+  "gates": {
+    "db_connection": "CONDITIONALLY_READY",
+    "migration": "CONDITIONALLY_READY",
+    "db_proof": "BLOCKED",
+    "auth_e2e": "BLOCKED",
+    "evidence_verification": "BLOCKED",
+    "final_production_gate": "BLOCKED"
+  },
+  "runtime": {
+    "communication_service": "afagh-communication-os-runtime",
+    "communication_deploy": "dep-dak77n6mr7fc73f3pqc0",
+    "communication_commit": "806253970d6a3e700a467fcc7b45fb95f7a25bc9",
+    "communication_status": "live",
+    "p0_1_service": "afagh-p0-1-runtime",
+    "p0_1_last_verified_commit": "414b0cfee71f85c68753b10a455239bc0383b322",
+    "p0_1_status": "live"
+  },
+  "security_truth": {
+    "oidc": "Microsoft Entra ID",
+    "pkce": "S256",
+    "state_persistence": "POSTGRES",
+    "nonce_validation": true,
+    "tenant_selection": "EXPLICIT_OR_SINGLE_MEMBERSHIP",
+    "communication_ai_action": "FAIL_CLOSED",
+    "evidence_integrity": "UNSIGNED_CONTROLLED_PENDING_EXTERNAL_VERIFIER"
+  }
+}
