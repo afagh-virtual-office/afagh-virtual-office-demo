@@ -1,0 +1,35 @@
+name: Communication Orchestration Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/communication-os/**'
+      - '.github/workflows/communication-orchestration.yml'
+  pull_request:
+    paths:
+      - 'runtime/communication-os/**'
+      - '.github/workflows/communication-orchestration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Orchestration Contract Smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime/communication-os
+    steps:
+      - name: Checkout exact ref
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Run orchestration smoke test
+        run: node orchestration-smoke-test.mjs
+      - name: Run existing communication contract smoke test
+        run: node contract-smoke-test.mjs
