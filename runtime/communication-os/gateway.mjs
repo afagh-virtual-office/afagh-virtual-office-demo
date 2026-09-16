@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { Pool } from 'pg';
 import { createMission, getMissions } from './orchestrator.js';
 import { CHANNELS, channelStatus, dispatch } from './channel-adapters.js';
+import { providerVerificationPlan, runProviderVerification, sanitizeVerificationResult } from './provider-verification.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const CORE_PORT = PORT + 1;
@@ -43,7 +44,9 @@ async function main(req,res){
   if(req.method==='GET' && u.pathname==='/api/v1/communication/channels') {
     return send(res,200,{service:'afagh-communication-os-runtime',build:BUILD,status:'CONTROLLED',channels:channelStatus()});
   }
-  if(req.method==='GET' && u.pathname==='/api/v1/communication/channels/:invalid') return send(res,404,{error:'NOT_FOUND'});
+  if(req.method==='GET' && u.pathname==='/api/v1/communication/provider-tests') {
+    return send(res,200,{service:'afagh-communication-os-runtime',build:BUILD,harness:'provider-verification-v1',mode:'CONTROLLED',tests:providerVerificationPlan()});
+  }
 
   const s=await auth(req);
   if(req.method==='POST' && u.pathname==='/api/v1/missions') {
@@ -57,6 +60,33 @@ async function main(req,res){
   if(req.method==='GET' && u.pathname==='/api/v1/missions') {
     try { return send(res,200,{items:await getMissions(pool,s)}); }
     catch(e){ return send(res,e.statusCode||500,{error:e.message||'MISSION_LIST_FAILED'}); }
+  }
+  if(req.method==='POST' && u.pathname==='/api/v1/communication/provider-tests/run') {
+    if(!s) return send(res,401,{error:'AUTHENTICATION_REQUIRED'});
+    let b; try{b=await body(req)}catch{return send(res,400,{error:'INVALID_JSON'});}
+    if(!b.channel || !b.recipient) return send(res,422,{error:'HARNESS_CONTRACT_VIOLATION',missing:['channel','recipient'].filter(k=>!b[k])});
+    const correlationId=b.correlation_id||id();
+    const startedAt=now();
+    const result=await runProviderVerification({channel:b.channel,recipient:b.recipient,payload:b.payload||{},confirm:b.confirm===true,correlation_id:correlationId,dry_run:b.dry_run===true});
+    const finishedAt=now();
+    let evidence={
+      evidence_id:id(),
+      type:'PROVIDER_VERIFICATION',
+      state:result.ok?'CONTROLLED':'BLOCKED',
+      production_verified:Boolean(result.ok && result.state==='DELIVERED'),
+      provider_verified:Boolean(result.ok && result.state==='DELIVERED'),
+      channel:b.channel,
+      correlation_id:correlationId,
+      started_at:startedAt,
+      finished_at:finishedAt,
+      result:sanitizeVerificationResult(result)
+    };
+    try {
+      if (b.mission_id) {
+        await pool.query('UPDATE missions SET updated_at=now() WHERE mission_id=$1 AND tenant_id=$2 AND workspace_id=$3',[b.mission_id,s.tenant_id,s.workspace_id]);
+      }
+    } catch {}
+    return send(res,result.state==='DELIVERED'?200:409,{harness:'provider-verification-v1',operation:{channel:b.channel,correlation_id:correlationId,state:result.state,delivery:result.ok?'DELIVERED':'NOT_EXECUTED'},result:sanitizeVerificationResult(result),evidence});
   }
   if(req.method==='POST' && u.pathname==='/api/v1/communication/operations/dispatch') {
     if(!s) return send(res,401,{error:'AUTHENTICATION_REQUIRED'});
