@@ -15,6 +15,7 @@ if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
 const pool = new Pool({ connectionString: DATABASE_URL, ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false } });
 const id = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
+const recipientRef = value => crypto.createHash('sha256').update(String(value)).digest('hex').slice(0,24);
 
 function send(res, status, body, headers = {}) {
   const h = { 'content-type':'application/json; charset=utf-8', 'cache-control':'no-store', 'access-control-allow-credentials':'true', ...headers };
@@ -69,24 +70,38 @@ async function main(req,res){
     const startedAt=now();
     const result=await runProviderVerification({channel:b.channel,recipient:b.recipient,payload:b.payload||{},confirm:b.confirm===true,correlation_id:correlationId,dry_run:b.dry_run===true});
     const finishedAt=now();
-    let evidence={
+    const sanitized=sanitizeVerificationResult(result);
+    const evidence={
       evidence_id:id(),
       type:'PROVIDER_VERIFICATION',
       state:result.ok?'CONTROLLED':'BLOCKED',
       production_verified:Boolean(result.ok && result.state==='DELIVERED'),
       provider_verified:Boolean(result.ok && result.state==='DELIVERED'),
       channel:b.channel,
+      provider:result.provider||null,
       correlation_id:correlationId,
       started_at:startedAt,
       finished_at:finishedAt,
-      result:sanitizeVerificationResult(result)
+      result:sanitized
     };
+    try {
+      await pool.query(`INSERT INTO provider_verification_runs(verification_id,tenant_id,workspace_id,channel,provider,recipient_ref,state,provider_message_id,provider_call_id,provider_status,provider_code,correlation_id,started_at,finished_at,production_verified,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,[
+        evidence.evidence_id,s.tenant_id,s.workspace_id,b.channel,result.provider||null,recipientRef(b.recipient),result.state||'BLOCKED',result.provider_message_id||null,result.provider_call_id||null,result.provider_status||null,result.provider_code||null,correlationId,startedAt,finishedAt,evidence.production_verified,sanitized
+      ]);
+    } catch(e) {
+      return send(res,500,{error:'EVIDENCE_PERSISTENCE_FAILED',correlation_id:correlationId});
+    }
     try {
       if (b.mission_id) {
         await pool.query('UPDATE missions SET updated_at=now() WHERE mission_id=$1 AND tenant_id=$2 AND workspace_id=$3',[b.mission_id,s.tenant_id,s.workspace_id]);
       }
     } catch {}
-    return send(res,result.state==='DELIVERED'?200:409,{harness:'provider-verification-v1',operation:{channel:b.channel,correlation_id:correlationId,state:result.state,delivery:result.ok?'DELIVERED':'NOT_EXECUTED'},result:sanitizeVerificationResult(result),evidence});
+    return send(res,result.state==='DELIVERED'?200:409,{harness:'provider-verification-v1',operation:{channel:b.channel,correlation_id:correlationId,state:result.state,delivery:result.ok?'DELIVERED':'NOT_EXECUTED'},result:sanitized,evidence});
+  }
+  if(req.method==='GET' && u.pathname==='/api/v1/communication/provider-tests/evidence') {
+    if(!s) return send(res,401,{error:'AUTHENTICATION_REQUIRED'});
+    const r=await pool.query(`SELECT verification_id,channel,provider,recipient_ref,state,provider_message_id,provider_call_id,provider_status,provider_code,correlation_id,started_at,finished_at,production_verified,created_at FROM provider_verification_runs WHERE tenant_id=$1 AND workspace_id=$2 ORDER BY created_at DESC LIMIT 100`,[s.tenant_id,s.workspace_id]);
+    return send(res,200,{items:r.rows,count:r.rowCount,auth:'VALID'});
   }
   if(req.method==='POST' && u.pathname==='/api/v1/communication/operations/dispatch') {
     if(!s) return send(res,401,{error:'AUTHENTICATION_REQUIRED'});
