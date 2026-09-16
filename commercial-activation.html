@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFAGH — Commercial Activation Control</title>
+<style>
+:root{--bg:#020814;--panel:#061427;--line:#19415f;--text:#f4f8ff;--muted:#94abc1;--cyan:#32e2ff;--blue:#167cff;--green:#00d6b0;--amber:#ffb52f;--red:#ff4d70}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 70% -10%,rgba(22,124,255,.18),transparent 65%),var(--bg);color:var(--text);font-family:Inter,Segoe UI,Tahoma,Arial,sans-serif}.wrap{max-width:1500px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.brand{display:flex;gap:12px;align-items:center}.mark{width:46px;height:46px;border:1px solid #2f85a7;border-radius:12px;display:grid;place-items:center;color:var(--cyan);font-weight:900;background:radial-gradient(circle,#dffcff,#174e7b 50%,#071629 75%)}h1{margin:0;font-size:28px}.sub{color:var(--muted);font-size:12px;margin-top:4px}.headstate{padding:9px 12px;border:1px solid #5e2437;border-radius:99px;color:#ff6c8b;background:rgba(255,77,112,.08);font-size:11px;font-weight:800}.hero{margin-top:18px;border:1px solid #185184;border-radius:18px;padding:20px;background:linear-gradient(120deg,#06162a,#041122)}.chain{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrow{color:#3f6685}.gate{flex:1 1 160px;min-width:150px;padding:13px;border:1px solid var(--line);border-radius:12px;background:#07182a}.gate b{display:block;font-size:11px}.gate span{display:block;margin-top:6px;font-size:10px}.badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:99px;border:1px solid #5e2437;color:#ff6c8b;background:rgba(255,77,112,.08)}.pass{border-color:#1b6657;color:#58ead2;background:rgba(0,214,176,.08)}.warn{border-color:#72501a;color:#ffc04c;background:rgba(255,181,47,.08)}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}.panel{border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#07182b,#051120);padding:16px}.panel h2{font-size:15px;margin:0 0 10px}.small{font-size:10px;color:var(--muted);line-height:1.8}.rows{display:grid;gap:8px}.row{display:grid;grid-template-columns:46px 1fr auto;gap:9px;align-items:center;padding:10px;border:1px solid #153c5b;border-radius:10px;background:#07182a}.num{font-size:11px;color:var(--cyan);font-weight:900}.row b{font-size:11px}.row em{font-style:normal;font-size:9px;color:var(--muted)}button{font:inherit}.btn{border:1px solid #2875a7;border-radius:9px;padding:8px 11px;background:#0a2a45;color:#bdefff;cursor:pointer;font-size:10px}.btn:hover{border-color:#44a7d1}.btn.primary{background:linear-gradient(135deg,#5530ec,#157fff);color:#fff}.btn.danger{border-color:#7a2c43;color:#ff8aa1}.controls{display:grid;gap:8px}.input{width:100%;height:38px;border:1px solid #194566;border-radius:9px;background:#041224;color:#fff;padding:0 10px;font-size:10px;outline:none}.textarea{width:100%;min-height:80px;border:1px solid #194566;border-radius:9px;background:#041224;color:#fff;padding:10px;font-size:10px;outline:none}.kv{display:grid;grid-template-columns:150px 1fr;gap:6px;font-size:10px}.kv div{padding:7px 8px;border-bottom:1px solid #12324d}.log{margin-top:10px;max-height:260px;overflow:auto;background:#030d19;border:1px solid #12344f;border-radius:9px;padding:9px;font:10px/1.7 Consolas,monospace;white-space:pre-wrap}.footer{margin-top:14px;color:#6f879e;font-size:9px}.link{color:#7edfff;text-decoration:none}.check{display:flex;gap:7px;align-items:center;font-size:10px;color:#aac0d4}.check input{accent-color:#2875a7}@media(max-width:1000px){.grid{grid-template-columns:1fr}.chain{display:grid;grid-template-columns:1fr}.arrow{text-align:center}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><div class="mark">AX</div><div><h1>Commercial Activation Control</h1><div class="sub">AFAGH Virtual Office — Final v1.0 · Fail-Closed</div></div></div>
+    <div id="headline" class="headstate">PRODUCTION BLOCKED</div>
+  </div>
+
+  <section class="hero">
+    <div class="chain" id="chain"></div>
+    <div class="small" style="margin-top:12px">این صفحه فقط وضعیت واقعی Endpointها و Evidence قابل‌دستیابی را نشان می‌دهد. هیچ PASS از UI تولید نمی‌شود.</div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Release Gate Matrix</h2>
+      <div class="rows" id="rows"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Controlled Tests</h2>
+      <div class="controls">
+        <button class="btn primary" id="refresh">Refresh live evidence</button>
+        <input class="input" id="channel" placeholder="Channel (مثلاً email)" value="email">
+        <input class="input" id="recipient" placeholder="Test recipient">
+        <textarea class="textarea" id="payload" placeholder='Payload JSON, e.g. {"subject":"AFAGH controlled test","text":"Controlled verification"}'>{"subject":"AFAGH controlled verification","text":"This is a controlled test. No commercial authorization is implied."}</textarea>
+        <label class="check"><input type="checkbox" id="dry" checked> Dry-run / no external side effect</label>
+        <label class="check"><input type="checkbox" id="confirm"> Explicitly authorize real provider test</label>
+        <button class="btn danger" id="provider">Run provider verification</button>
+        <div class="small">Real provider verification remains a controlled technical test. Real business communication stays locked until G09 is AUTHORIZED.</div>
+      </div>
+      <div class="log" id="log">Ready.</div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:14px">
+    <h2>Evidence Inspector</h2>
+    <div class="kv" id="meta"></div>
+  </section>
+
+  <div class="footer">Canonical architecture: <a class="link" href="https://github.com/afagh-virtual-office/afagh-virtual-office" target="_blank">afagh-virtual-office/afagh-virtual-office</a> · Demo/runtime surface: <a class="link" href="./" target="_blank">AFAGH Virtual Office</a></div>
+</div>
+<script>
+const endpoints={
+  p01:'https://afagh-p0-1-runtime.onrender.com/api/v1/health',
+  comm:'https://afagh-communication-os-runtime.onrender.com/api/v1/communication/health',
+  db:'https://afagh-communication-os-runtime.onrender.com/api/v1/communication/proof/db',
+  channels:'https://afagh-communication-os-runtime.onrender.com/api/v1/communication/channels',
+  providers:'https://afagh-communication-os-runtime.onrender.com/api/v1/communication/provider-tests'
+};
+const gates=[
+ ['G01','DB Connection','db'],['G02','Migration','comm'],['G03','Communication Health','comm'],['G04','Provider Verification','providers'],['G05','Controlled Virtual Expert Communication','auth'],['G06','Evidence Persistence','evidence'],['G07','Security / Authorization Evidence','security'],['G08','Production Release Gate','release'],['G09','Commercial Activation','activation']
+];
+const S={unknown:'UNKNOWN',pass:'PASS',blocked:'BLOCKED',authorized:'AUTHORIZED'};
+const state={};
+const $=id=>document.getElementById(id);
+function badge(status){const cls=status==='PASS'||status==='AUTHORIZED'?'pass':status==='UNKNOWN'?'warn':'';return `<span class="badge ${cls}">${status}</span>`}
+function render(){
+  $('chain').innerHTML=gates.map((g,i)=>`<div class="gate"><b>${g[0]} · ${g[1]}</b><span>${badge(state[g[0]]||'UNKNOWN')}</span></div>${i<gates.length-1?'<div class="arrow">↓</div>':''}`).join('');
+  $('rows').innerHTML=gates.map(g=>`<div class="row"><div class="num">${g[0]}</div><div><b>${g[1]}</b><em>${g[2]}</em></div><div>${badge(state[g[0]]||'UNKNOWN')}</div></div>`).join('');
+  const final=state.G09==='AUTHORIZED'?'COMMERCIAL ACTIVATION AUTHORIZED':'PRODUCTION BLOCKED';
+  $('headline').textContent=final; $('headline').className='headstate'+(state.G09==='AUTHORIZED'?' pass':'');
+}
+async function getJson(url,options={}){
+  const r=await fetch(url,{cache:'no-store',...options});
+  const text=await r.text(); let body; try{body=JSON.parse(text)}catch{body={raw:text}};
+  return {ok:r.ok,status:r.status,body};
+}
+async function refresh(){
+  $('log').textContent='Refreshing live evidence…';
+  state.G01=state.G02=state.G03=state.G04=state.G05=state.G06=state.G07=state.G08=state.G09='UNKNOWN';
+  const [db,comm,providers,channels]=await Promise.allSettled([
+    getJson(endpoints.db),getJson(endpoints.comm),getJson(endpoints.providers),getJson(endpoints.channels)
+  ]);
+  const out=[];
+  if(db.status==='fulfilled'){
+    state.G01=db.value.ok?'PASS':'BLOCKED'; out.push(['DB',db.value]);
+    if(db.value.ok) state.G06='UNKNOWN';
+  } else out.push(['DB',String(db.reason)]);
+  if(comm.status==='fulfilled'){state.G03=comm.value.ok?'PASS':'BLOCKED';state.G02=comm.value.ok?'UNKNOWN':'BLOCKED';out.push(['COMM',comm.value])} else out.push(['COMM',String(comm.reason)]);
+  if(providers.status==='fulfilled'){state.G04=providers.value.ok?'UNKNOWN':'BLOCKED';out.push(['PROVIDERS',providers.value])} else out.push(['PROVIDERS',String(providers.reason)]);
+  if(channels.status==='fulfilled')out.push(['CHANNELS',channels.value]);
+  state.G05='BLOCKED'; state.G06='BLOCKED'; state.G07='BLOCKED'; state.G08='BLOCKED'; state.G09='BLOCKED';
+  $('meta').innerHTML=`<div>DB endpoint</div><div>${endpoints.db}</div><div>Communication</div><div>${endpoints.comm}</div><div>Provider harness</div><div>${endpoints.providers}</div><div>Release rule</div><div>G09 AUTHORIZED only after G08 PASS + four-team approval</div>`;
+  $('log').textContent=JSON.stringify(out,null,2); render();
+}
+$('refresh').onclick=refresh;
+$('provider').onclick=async()=>{
+  const channel=$('channel').value.trim(),recipient=$('recipient').value.trim();let payload={};
+  try{payload=JSON.parse($('payload').value)}catch{$('log').textContent='INVALID PAYLOAD JSON';return}
+  if(!channel||!recipient){$('log').textContent='Channel and recipient are required for the controlled harness.';return}
+  const body={channel,recipient,payload,dry_run:$('dry').checked,confirm:$('confirm').checked,correlation_id:crypto.randomUUID()};
+  $('log').textContent='Running controlled provider verification…';
+  try{const r=await getJson('https://afagh-communication-os-runtime.onrender.com/api/v1/communication/provider-tests/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); $('log').textContent=JSON.stringify(r,null,2); state.G04=r.ok?'PASS':'BLOCKED'; state.G05='BLOCKED'; state.G06=r.ok?'UNKNOWN':'BLOCKED'; render();}catch(e){$('log').textContent=String(e)}
+};
+refresh();
+</script>
+</body>
+</html>
