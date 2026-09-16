@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   architecture-closure:
-    name: Verify VERIFIER-001 / VERIFIER-002
+    name: Verify Architecture and Production Release Gates
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,10 +26,22 @@ jobs:
       - name: Run architecture closure verifier
         run: python scripts/verify_architecture_closure.py
 
-      - name: Publish machine-readable result
+      - name: Run final three-state release gate verifier
+        if: always()
+        run: python scripts/verify_production_release_gate.py
+
+      - name: Publish machine-readable architecture result
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: architecture-closure-verification
           path: data/architecture-closure-verification.json
+          if-no-files-found: error
+
+      - name: Publish machine-readable production gate result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-gate
+          path: data/production-release-gate.json
           if-no-files-found: error
