@@ -2,6 +2,26 @@
   "protocol": "AFAGH-A3",
   "version": "1.0",
   "status": "CONTROLLED_RUNTIME_PENDING_VERIFICATION",
+  "decision": {
+    "status": "ACCEPTED",
+    "authority": "T1/T3/T4",
+    "evidence_ref": "ADR-006"
+  },
+  "implementation": {
+    "status": "IMPLEMENTED",
+    "evidence_ref": "runtime/p0-1/production.mjs",
+    "verification_status": "PENDING_RUNTIME_PROOF"
+  },
+  "credential_status": {
+    "status": "PENDING_EXTERNAL_IDP",
+    "credential_boundary": "SECRETS_OUTSIDE_PUBLIC_REPOSITORY",
+    "evidence_ref": "contracts/p0-1/auth-evidence.schema.json"
+  },
+  "ratification": {
+    "status": "PENDING_FORMAL_GATE",
+    "authority": "Four-Team Architecture Council",
+    "evidence_ref": "data/architecture-closure-verification.json"
+  },
   "gates": {
     "architecture_baseline": "PASS",
     "requirements_contracts": "REVISE",
@@ -15,6 +35,7 @@
   "transition_rules": [
     "No gate may transition to PASS without runtime or externally verifiable evidence.",
     "Production may transition to PASS only after database, migration, auth E2E and evidence verification are PASS.",
-    "UI state is not evidence of production verification."
+    "UI state is not evidence of production verification.",
+    "A3 dimensions must remain independently traceable; incomplete dimensions keep A3 blocked."
   ]
 }
