@@ -47,6 +47,17 @@ jobs:
               s = s.replace('</head>', f'{marker}</head>')
               p.write_text(s, encoding='utf-8')
           PY
+      - name: Activate FA/EN language switcher
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<script src="assets/i18n.js"></script>'
+          if marker not in s:
+              s = s.replace('</body>', f'{marker}</body>')
+              p.write_text(s, encoding='utf-8')
+          PY
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
