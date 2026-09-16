@@ -36,6 +36,17 @@ jobs:
               s = s.replace('</body>', f'{marker}</body>')
               p.write_text(s, encoding='utf-8')
           PY
+      - name: Apply 14px UI typography baseline
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '<link rel="stylesheet" href="assets/font-size-14.css">'
+          if marker not in s:
+              s = s.replace('</head>', f'{marker}</head>')
+              p.write_text(s, encoding='utf-8')
+          PY
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
