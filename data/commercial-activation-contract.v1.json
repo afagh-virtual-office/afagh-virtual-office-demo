@@ -1,0 +1,50 @@
+{
+  "schema_version": "afagh-commercial-activation-contract.v1",
+  "contract_status": "FINAL",
+  "mode": "FAIL_CLOSED",
+  "authority": "Four-Team Architecture Council",
+  "purpose": "Machine-readable contract for transition from controlled runtime to real commercial operation.",
+  "activation_chain": [
+    {"id":"G01","name":"DB Connection","pass_requires":["runtime-connected-to-authoritative-db","target-identity-proven","no-placeholder-host","secret-values-not-exposed"]},
+    {"id":"G02","name":"Migration","pass_requires":["migration-run-success","schema-version-proven","checksum-integrity-proven","transactional-behavior-proven"]},
+    {"id":"G03","name":"Communication Health","pass_requires":["runtime-health-pass","db-backed-health-proven","no-fatal-startup-errors","fail-closed-startup"]},
+    {"id":"G04","name":"Provider Verification","pass_requires":["enabled-provider-connectivity-proven","adapter-contract-proven","controlled-send-or-equivalent-proven","failure-path-proven"]},
+    {"id":"G05","name":"Controlled Virtual Expert Communication","pass_requires":["identity-context-proven","agent-authorized","policy-allow-proven","authorized-tool-channel-proven","result-proven"]},
+    {"id":"G06","name":"Evidence Persistence","pass_requires":["durable-evidence-written","correlation-id-present","actor-and-action-recorded","integrity-verified","evidence-retrievable"]},
+    {"id":"G07","name":"Security / Authorization Evidence","pass_requires":["invalid-session-denied","revoked-session-denied","insufficient-permission-denied","cross-tenant-denied","unauthorized-action-denied","tampered-evidence-not-trusted"]},
+    {"id":"G08","name":"Production Release Gate","pass_requires":["G01_PASS","G02_PASS","G03_PASS","G04_PASS","G05_PASS","G06_PASS","G07_PASS","architecture_closure_PASS","production_authorization_AUTHORIZED","exact_release_head_valid","no_mandatory_blocker"]},
+    {"id":"G09","name":"Commercial Activation","pass_requires":["G08_PASS","four_team_approval_PASS"],"unlocks":["real_commercial_communication","authorized_external_side_effects","approved_virtual_expert_operations"]}
+  ],
+  "virtual_expert_levels": [
+    {"level":"L0","mode":"OBSERVE_ANALYZE","external_side_effects":false},
+    {"level":"L1","mode":"RECOMMEND_DRAFT","external_side_effects":false},
+    {"level":"L2","mode":"LIMITED_EXECUTION","external_side_effects":true,"requires":"explicit_policy_and_authorization"},
+    {"level":"L3","mode":"AUTONOMOUS_WITHIN_POLICY","external_side_effects":true,"requires":"commercial_activation_authorized"}
+  ],
+  "state_rules": {
+    "missing_evidence": "BLOCKED",
+    "unknown_evidence": "BLOCKED",
+    "stale_evidence": "BLOCKED",
+    "contradictory_evidence": "BLOCKED",
+    "runtime_failure": "BLOCKED",
+    "security_failure": "BLOCKED",
+    "ui_cannot_override_gate": true,
+    "older_release_evidence_invalidates_new_head": true
+  },
+  "evidence_record_minimum": [
+    "schema_version",
+    "gate_id",
+    "status",
+    "release_head",
+    "producer",
+    "verification_method",
+    "verified_at",
+    "scope",
+    "evidence_refs",
+    "integrity",
+    "blockers",
+    "environment"
+  ],
+  "secret_boundary": "Secrets and private enterprise data remain outside the public repository and outside evidence payloads.",
+  "real_business_start_condition": "G09_AUTHORIZED"
+}
