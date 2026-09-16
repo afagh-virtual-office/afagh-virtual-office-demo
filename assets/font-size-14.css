@@ -1,0 +1,58 @@
+/* AFAGH UI Typography Baseline — 14px minimum body/interface text. */
+html { font-size: 14px !important; }
+body { font-size: 14px !important; }
+
+.brand small,
+.nav button,
+.nav button b,
+.nav button small,
+.side-status small,
+.side-status strong,
+.side-status span,
+.search input,
+.chip,
+.lang button,
+.user b,
+.user small,
+.eyebrow,
+.hero p,
+.btn,
+.tag,
+.node,
+.live-dot,
+.card h3,
+.card small,
+.card .muted,
+.state,
+.sectionhead small,
+.msg,
+.msg time,
+.composer input,
+.quick button,
+.ctrl b,
+.ctrl span,
+.ctrl button,
+.feedrow,
+.empty,
+.footer,
+.toast { font-size: 14px !important; }
+
+.nav button { line-height: 1.35; }
+.nav small,
+.side-status span,
+.user small,
+.card small,
+.card .muted,
+.sectionhead small,
+.msg time,
+.ctrl span,
+.empty,
+.footer { line-height: 1.55; }
+
+.hero p { line-height: 1.8; }
+.msg { line-height: 1.65; }
+
+/* Keep visual glyphs/icons and intentionally large display typography intact. */
+.ico { font-size: 14px !important; }
+.search span { font-size: 18px !important; }
+.send { font-size: 16px !important; }
