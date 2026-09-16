@@ -1,0 +1,62 @@
+name: Production Release Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    name: Verify architecture, authorization, and production readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify architecture closure
+        id: architecture
+        continue-on-error: true
+        run: python scripts/verify_architecture_closure.py
+
+      - name: Verify final three-state release gate
+        id: release
+        if: always()
+        run: python scripts/verify_production_release_gate.py
+
+      - name: Publish architecture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-closure-verification
+          path: data/architecture-closure-verification.json
+          if-no-files-found: error
+
+      - name: Publish final release gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-gate
+          path: data/production-release-gate.json
+          if-no-files-found: error
+
+      - name: Enforce final release decision
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('data/production-release-gate.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          raise SystemExit(0 if data.get('final_release') == 'PASS' else 1)
+          PY
