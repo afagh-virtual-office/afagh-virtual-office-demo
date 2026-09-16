@@ -25,7 +25,7 @@ A3 = ROOT / "docs" / "architecture" / "A3-PROTOCOL-STATE.json"
 REMAINING = ROOT / "data" / "remaining-work-board.json"
 REQUIREMENTS = ROOT / "docs" / "requirements" / "REQUIREMENTS-CONTRACT-CHALLENGE-V3.md"
 
-PRODUCTION_P0 = {
+ARCHITECTURE_P0 = {
     "RW-001", "RW-002", "RW-003", "RW-004", "RW-005", "RW-006", "RW-007"
 }
 PRODUCTION_MANDATORY = {
@@ -53,7 +53,7 @@ def release_head() -> str:
         return "UNKNOWN"
 
 
-def result(id_: str, status: str, reason: str, evidence: list[str] | None = None) -> dict[str, Any]:
+def finding(id_: str, status: str, reason: str, evidence: list[str] | None = None) -> dict[str, Any]:
     return {"id": id_, "status": status, "reason": reason, "evidence": evidence or []}
 
 
@@ -61,79 +61,77 @@ def verify_architecture() -> tuple[str, list[dict[str, Any]]]:
     findings: list[dict[str, Any]] = []
     arch = load_json(ARCH)
     if not arch:
-        findings.append(result("ARCH-CLOSURE", "BLOCKED", "architecture closure evidence is missing or invalid", [str(ARCH.relative_to(ROOT))]))
+        findings.append(finding("ARCH-CLOSURE", "BLOCKED", "architecture closure evidence is missing or invalid", [str(ARCH.relative_to(ROOT))]))
         return "BLOCKED", findings
     if arch.get("status") != "PASS":
-        findings.append(result("ARCH-CLOSURE", "BLOCKED", f"architecture closure status is {arch.get('status')!r}, not PASS", [str(ARCH.relative_to(ROOT))]))
+        findings.append(finding("ARCH-CLOSURE", "BLOCKED", f"architecture closure status is {arch.get('status')!r}, not PASS", [str(ARCH.relative_to(ROOT))]))
         return "BLOCKED", findings
-    findings.append(result("ARCH-CLOSURE", "PASS", "architecture closure evidence is PASS", [str(ARCH.relative_to(ROOT))]))
+    findings.append(finding("ARCH-CLOSURE", "PASS", "architecture closure evidence is PASS", [str(ARCH.relative_to(ROOT))]))
 
     a3 = load_json(A3)
     required = ["decision", "implementation", "credential_status", "ratification"]
     if not a3:
-        findings.append(result("A3-STATE", "BLOCKED", "A3 state is missing or invalid", [str(A3.relative_to(ROOT))]))
+        findings.append(finding("A3-STATE", "BLOCKED", "A3 state is missing or invalid", [str(A3.relative_to(ROOT))]))
         return "BLOCKED", findings
     missing = [k for k in required if not isinstance(a3.get(k), dict) or not a3[k].get("status")]
     if missing:
-        findings.append(result("A3-STATE", "BLOCKED", "A3 dimensions are incomplete: " + ", ".join(missing), [str(A3.relative_to(ROOT))]))
+        findings.append(finding("A3-STATE", "BLOCKED", "A3 dimensions are incomplete: " + ", ".join(missing), [str(A3.relative_to(ROOT))]))
         return "BLOCKED", findings
     unverified = [k for k in required if str(a3[k]["status"]).upper() not in {"VERIFIED", "PASS", "APPROVED", "PROVISIONED", "IMPLEMENTED"}]
     if unverified:
-        findings.append(result("A3-STATE", "BLOCKED", "A3 dimensions are not fully verified: " + ", ".join(unverified), [str(A3.relative_to(ROOT))]))
+        findings.append(finding("A3-STATE", "BLOCKED", "A3 dimensions are not fully verified: " + ", ".join(unverified), [str(A3.relative_to(ROOT))]))
         return "BLOCKED", findings
-    findings.append(result("A3-STATE", "PASS", "all four A3 dimensions are independently verified", [str(A3.relative_to(ROOT))]))
+    findings.append(finding("A3-STATE", "PASS", "all four A3 dimensions are independently verified", [str(A3.relative_to(ROOT))]))
 
     remaining = load_json(REMAINING)
     if not remaining:
-        findings.append(result("P0-REMAINING", "BLOCKED", "remaining-work board is missing or invalid", [str(REMAINING.relative_to(ROOT))]))
+        findings.append(finding("ARCH-P0", "BLOCKED", "remaining-work board is missing or invalid", [str(REMAINING.relative_to(ROOT))]))
         return "BLOCKED", findings
-    blockers = [i for i in remaining.get("items", []) if i.get("id") in PRODUCTION_P0 and i.get("status") != "CLOSED"]
+    blockers = [i for i in remaining.get("items", []) if i.get("id") in ARCHITECTURE_P0 and i.get("status") != "CLOSED"]
     if blockers:
-        ids = ", ".join(i.get("id", "UNKNOWN") for i in blockers)
-        findings.append(result("P0-REMAINING", "BLOCKED", f"unclosed architecture P0 items: {ids}", [str(REMAINING.relative_to(ROOT))]))
+        ids = ", ".join(f"{i.get('id')}={i.get('status')}" for i in blockers)
+        findings.append(finding("ARCH-P0", "BLOCKED", "architecture P0 items are not closed: " + ids, [str(REMAINING.relative_to(ROOT))]))
         return "BLOCKED", findings
-    findings.append(result("P0-REMAINING", "PASS", "all architecture P0 items are closed", [str(REMAINING.relative_to(ROOT))]))
+    findings.append(finding("ARCH-P0", "PASS", "all architecture P0 items are closed", [str(REMAINING.relative_to(ROOT))]))
     return "PASS", findings
 
 
 def verify_production_authorization(architecture_status: str) -> tuple[str, list[dict[str, Any]]]:
     findings: list[dict[str, Any]] = []
     if architecture_status != "PASS":
-        findings.append(result("AUTH-CHAIN", "BLOCKED", "Green Architecture Gate is not PASS; production authorization is impossible", []))
+        findings.append(finding("AUTH-CHAIN", "BLOCKED", "Green Architecture Gate is not PASS; production authorization is impossible"))
         return "BLOCKED", findings
 
     remaining = load_json(REMAINING)
     if not remaining:
-        findings.append(result("AUTH-PREREQS", "BLOCKED", "remaining-work board is missing or invalid", [str(REMAINING.relative_to(ROOT))]))
+        findings.append(finding("AUTH-PREREQS", "BLOCKED", "remaining-work board is missing or invalid", [str(REMAINING.relative_to(ROOT))]))
         return "BLOCKED", findings
     unresolved = [i for i in remaining.get("items", []) if i.get("id") in PRODUCTION_MANDATORY and i.get("status") != "CLOSED"]
     if unresolved:
         details = "; ".join(f"{i.get('id')}={i.get('status')}" for i in unresolved)
-        findings.append(result("AUTH-PREREQS", "BLOCKED", "mandatory production prerequisites unresolved: " + details, [str(REMAINING.relative_to(ROOT))]))
+        findings.append(finding("AUTH-PREREQS", "BLOCKED", "mandatory production prerequisites unresolved: " + details, [str(REMAINING.relative_to(ROOT))]))
         return "BLOCKED", findings
 
     if REQUIREMENTS.exists() and "NO P0 CONTRACT APPROVED" in REQUIREMENTS.read_text(encoding="utf-8"):
-        findings.append(result("AUTH-CONTRACTS", "BLOCKED", "requirements contract challenge still declares NO P0 CONTRACT APPROVED", [str(REQUIREMENTS.relative_to(ROOT))]))
+        findings.append(finding("AUTH-CONTRACTS", "BLOCKED", "requirements contract challenge still declares NO P0 CONTRACT APPROVED", [str(REQUIREMENTS.relative_to(ROOT))]))
         return "BLOCKED", findings
 
-    findings.append(result("AUTH-CONTRACTS", "PASS", "requirements contract challenge no longer contains the NO P0 CONTRACT APPROVED blocker", [str(REQUIREMENTS.relative_to(ROOT))]))
-    findings.append(result("AUTH-PREREQS", "PASS", "all mandatory production authorization prerequisites are closed", [str(REMAINING.relative_to(ROOT))]))
+    findings.append(finding("AUTH-CONTRACTS", "PASS", "requirements contract challenge no longer contains the NO P0 CONTRACT APPROVED blocker", [str(REQUIREMENTS.relative_to(ROOT))]))
+    findings.append(finding("AUTH-PREREQS", "PASS", "all mandatory production authorization prerequisites are closed", [str(REMAINING.relative_to(ROOT))]))
     return "AUTHORIZED", findings
 
 
 def verify_ready(authorization_status: str) -> tuple[str, list[dict[str, Any]]]:
     findings: list[dict[str, Any]] = []
     if authorization_status != "AUTHORIZED":
-        findings.append(result("READY-AUTH", "BLOCKED", "production authorization is not AUTHORIZED", []))
+        findings.append(finding("READY-AUTH", "BLOCKED", "production authorization is not AUTHORIZED"))
         return "BLOCKED", findings
-    # Runtime readiness is intentionally evidence-driven. The current repository has
-    # a dedicated release gate but no trustworthy live proof bundle by default.
     ready_evidence = ROOT / "data" / "production-readiness-evidence.json"
     data = load_json(ready_evidence)
     if not data or data.get("status") != "PASS":
-        findings.append(result("READY-RUNTIME", "BLOCKED", "current release-head production readiness evidence is absent or not PASS", [str(ready_evidence.relative_to(ROOT))]))
+        findings.append(finding("READY-RUNTIME", "BLOCKED", "current release-head production readiness evidence is absent or not PASS", [str(ready_evidence.relative_to(ROOT))]))
         return "BLOCKED", findings
-    findings.append(result("READY-RUNTIME", "PASS", "current release-head production readiness evidence is PASS", [str(ready_evidence.relative_to(ROOT)]))
+    findings.append(finding("READY-RUNTIME", "PASS", "current release-head production readiness evidence is PASS", [str(ready_evidence.relative_to(ROOT))]))
     return "PASS", findings
 
 
