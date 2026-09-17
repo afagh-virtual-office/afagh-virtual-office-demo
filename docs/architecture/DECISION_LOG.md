@@ -79,3 +79,8 @@ Status: LOCKED
 Decision: Communication OS must bind DATABASE_URL through Render managed database linkage, not a manually invented hostname/reference.
 Authority: T1/T3
 Status: IMPLEMENTED
+
+## D-2026-09-17 — Golden Business Request Path
+Decision: A single end-to-end business request path is the canonical operational proving path: USER REQUEST → IDENTITY + WORKSPACE → INTENT → VIRTUAL EXPERT ROUTING → AI ANALYSIS → PROPOSED RESPONSE → POLICY → AUTHORIZATION → APPROVED EXECUTION → COMMUNICATION → RESULT → CORRELATION ID → POSTGRESQL EVIDENCE → AUDIT. The first implementation uses a deterministic baseline analysis engine and keeps external side effects disabled at the response stage; production provider execution remains separately gated.
+Authority: T1/T2/T3/T4
+Status: IMPLEMENTED / RUNTIME EVIDENCE PENDING
