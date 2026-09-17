@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "status": "CONTROLLED_IMPLEMENTATION",
+  "authority": "Four-Team Architecture Council",
+  "boundary": {
+    "business_360": "AUTHORITATIVE_CONTEXT",
+    "virtual_expert_workforce": "COGNITIVE_OPERATIONAL_WORKFORCE",
+    "communication_os": "CHANNEL_ORCHESTRATION"
+  },
+  "authority_levels": [
+    "OBSERVE_ANALYZE",
+    "RECOMMEND_DRAFT",
+    "LIMITED_EXECUTION",
+    "AUTONOMOUS_WITHIN_POLICY"
+  ],
+  "baseline_expert_count": 8,
+  "scalable": true,
+  "baseline_experts": [
+    "ve.trade.iran-china",
+    "ve.sourcing.china",
+    "ve.sales.iran",
+    "ve.customer.success",
+    "ve.logistics.crossborder",
+    "ve.finance.trade",
+    "ve.communication.ops",
+    "ve.compliance.governance"
+  ],
+  "supported_customer_channels": [
+    "whatsapp",
+    "telegram",
+    "instagram",
+    "shad",
+    "bale",
+    "rubika"
+  ],
+  "commercial_activation_required_for_level_3": true,
+  "fail_closed": true,
+  "evidence_required": true
+}
