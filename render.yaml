@@ -5,6 +5,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: npm install --prefix runtime/p0-1 --omit=dev
+    preDeployCommand: node runtime/p0-1/migrate.mjs
     startCommand: node runtime/p0-1/server.mjs
     healthCheckPath: /api/v1/health
     envVars:
