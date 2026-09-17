@@ -45,6 +45,6 @@ services:
 
 databases:
   - name: afagh-p0-1-db
-    databaseName: afagh_p0_1
+    databaseName: afagh_p0_1_db
     plan: starter
     postgresMajorVersion: "18"
