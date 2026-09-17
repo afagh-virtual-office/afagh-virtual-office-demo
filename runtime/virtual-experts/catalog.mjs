@@ -5,8 +5,8 @@ export function loadBaselineExperts() {
     workspaceScopes: ['*'],
     allowedChannels: ['whatsapp', 'telegram', 'instagram', 'bale', 'shad', 'rubika'],
     status: 'ACTIVE',
-    authorityLevel: LEVELS.L1,
-    version: '1.0.0'
+    authorityLevel: LEVELS.L2,
+    version: '1.0.1'
   };
 
   [
