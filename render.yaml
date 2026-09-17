@@ -2,7 +2,8 @@ services:
   - type: web
     name: afagh-p0-1-runtime
     runtime: node
-    plan: starter
+    region: frankfurt
+    plan: free
     buildCommand: npm install --prefix runtime/p0-1 --omit=dev
     startCommand: node runtime/p0-1/migrate.mjs && node runtime/p0-1/server.mjs
     healthCheckPath: /api/v1/health
@@ -27,6 +28,7 @@ services:
   - type: web
     name: afagh-communication-os-runtime
     runtime: node
+    region: frankfurt
     plan: starter
     buildCommand: npm install --prefix runtime/communication-os --omit=dev
     startCommand: node runtime/communication-os/migrate.mjs && node runtime/communication-os/server.js
@@ -46,5 +48,6 @@ services:
 databases:
   - name: afagh-p0-1-db
     databaseName: afagh_p0_1_db
-    plan: starter
+    plan: free
+    region: frankfurt
     postgresMajorVersion: "18"
