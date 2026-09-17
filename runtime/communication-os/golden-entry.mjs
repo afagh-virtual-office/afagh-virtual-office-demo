@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { main as goldenMain } from '../virtual-experts/golden-business-request.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const GATEWAY_PORT = Number(process.env.COMMUNICATION_GATEWAY_PORT || (PORT + 1));
@@ -17,11 +18,15 @@ function proxy(req,res){
   req.pipe(p);
 }
 
-const server=http.createServer((req,res)=>{
+async function route(req,res){
   if(req.method==='GET'&&req.url==='/api/v1/runtime/entry-health'){
     return respond(res,200,{service:'afagh-runtime-entry',status:'CONTROLLED',public_port:PORT,gateway_port:GATEWAY_PORT,build:process.env.SOURCE_BUILD||'UNKNOWN'});
   }
-  proxy(req,res);
-});
+  if(req.url?.startsWith('/api/v1/golden/')) return goldenMain(req,res);
+  return proxy(req,res);
+}
 
-server.listen(PORT,'0.0.0.0',()=>console.log(`AFAGH Runtime Entry listening on :${PORT}; gateway :${GATEWAY_PORT}`));
+http.createServer((req,res)=>route(req,res).catch(e=>{
+  console.error(e);
+  respond(res,500,{error:'RUNTIME_ENTRY_INTERNAL_ERROR'});
+})).listen(PORT,'0.0.0.0',()=>console.log(`AFAGH Runtime Entry listening on :${PORT}; gateway :${GATEWAY_PORT}`));
