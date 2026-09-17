@@ -7,6 +7,17 @@ const PUBLIC_PORT = Number(process.env.PORT || 8787);
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 
+const EXPERT_NAMES = Object.freeze({
+  've.sourcing.china':'China Sourcing Expert',
+  've.sales.iran':'Iran Sales Expert',
+  've.logistics.crossborder':'Cross-Border Logistics Expert',
+  've.finance.trade':'Trade Finance Expert',
+  've.compliance.governance':'Compliance & Governance Expert',
+  've.communication.ops':'Communication Operations Expert',
+  've.customer.success':'Customer Success Expert',
+  've.trade.iran-china':'Trade Intelligence Expert',
+});
+
 const KEYWORDS = [
   { domain:'sourcing', skills:['supplier-discovery','supplier-evaluation','rfq-draft'], terms:['sourcing','supplier','procurement','rfq','چین','تأمین','تامین','خرید خارجی','استعلام تامین'] },
   { domain:'sales', skills:['lead-qualification','sales-response','follow-up-draft'], terms:['sales','customer','lead','فروش','مشتری','فروشنده','سرنخ'] },
@@ -49,7 +60,7 @@ function analyzeRequest(request) {
   };
 }
 
-function buildResponse({ request, analysis, expert }) {
+function buildResponse({ request, analysis, expertId }) {
   const next = {
     sourcing:'supplier discovery and evaluation',
     sales:'customer qualification and follow-up',
@@ -60,7 +71,8 @@ function buildResponse({ request, analysis, expert }) {
     'customer-success':'issue triage and follow-up',
     trade:'Iran-China trade opportunity analysis',
   }[analysis.domain];
-  return `درخواست کاری شما توسط ${expert.name} تحلیل شد. حوزه تشخیص‌داده‌شده: ${analysis.domain}. اقدام پیشنهادی بعدی: ${next}. این پاسخ در Golden Business Request Path تولید شده و برای اجرای اقدام خارجی، نیازمند Policy/Authorization و Evidence مستقل است.`;
+  const expertName = EXPERT_NAMES[expertId] || 'Virtual Expert';
+  return `درخواست کاری شما توسط ${expertName} تحلیل شد. حوزه تشخیص‌داده‌شده: ${analysis.domain}. اقدام پیشنهادی بعدی: ${next}. این پاسخ در Golden Business Request Path تولید شده و برای اجرای اقدام خارجی، نیازمند Policy/Authorization و Evidence مستقل است.`;
 }
 
 function json(res,status,body,headers={}) {
@@ -91,7 +103,7 @@ async function readJson(req,maxBytes=32768){
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized:false } });
 
-async function handleGolden(pool,req,res,u) {
+async function handleGolden(pool,req,res) {
   const session = await authenticate(pool,req);
   if (!session) return json(res,401,{error:'AUTHENTICATION_REQUIRED'});
   if (!(session.permissions||[]).includes('office:write') && !(session.permissions||[]).includes('office:admin')) return json(res,403,{error:'OFFICE_WRITE_PERMISSION_REQUIRED'});
@@ -115,18 +127,17 @@ async function handleGolden(pool,req,res,u) {
     commercialActivationAuthorized: false,
   });
   if (!journey.ok) return json(res,409,{state:'BLOCKED',correlation_id:correlationId,stage:journey.stage,reason:journey.reason,journey});
-  const expert = { expert_id: journey.stages.expertSelection.expertId, score: journey.stages.expertSelection.score };
-  const proposedResponse = buildResponse({request,analysis,expert:{name:expert.expert_id}});
-  const authorization = (session.permissions||[]).includes('office:write') || (session.permissions||[]).includes('office:admin')
-    ? 'AUTHORIZED_FOR_GOLDEN_PATH'
-    : 'DENY';
+  const expertId = journey.stages.expertSelection.expertId;
+  const expertScore = journey.stages.expertSelection.score;
+  const proposedResponse = buildResponse({request,analysis,expertId});
+  const authorization = (session.permissions||[]).includes('office:write') || (session.permissions||[]).includes('office:admin') ? 'AUTHORIZED_FOR_GOLDEN_PATH' : 'DENY';
   const finishedAt = now();
   const result = {
     request,
     identity: { subject_id:session.subject_id, display_name:session.display_name },
     context: { tenant_id:session.tenant_id, workspace_id:session.workspace_id },
     intent: analysis.commercial_objective,
-    expert_routing: journey.stages.expertSelection,
+    expert_routing: { expert_id:expertId, score:expertScore },
     analysis,
     proposed_response: proposedResponse,
     policy: journey.stages.policy,
@@ -142,7 +153,7 @@ async function handleGolden(pool,req,res,u) {
   await pool.query(`INSERT INTO golden_business_requests
     (request_id,tenant_id,workspace_id,actor_subject_id,request_text,domain,expert_id,expert_score,analysis,proposed_response,policy_decision,authorization_decision,execution_state,communication_channel,communication_state,result_status,correlation_id,evidence_state,release_head,started_at,finished_at)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,[
-      id(),session.tenant_id,session.workspace_id,session.subject_id,request,analysis.domain,expert.expert_id,expert.score,JSON.stringify(analysis),proposedResponse,journey.stages.policy.decision,authorization,'EXECUTED','HTTP_RESPONSE','RESPONDED','SUCCESS',correlationId,'RUNTIME_GENERATED_PENDING_VERIFIER',process.env.SOURCE_BUILD||'UNKNOWN',startedAt,finishedAt
+      id(),session.tenant_id,session.workspace_id,session.subject_id,request,analysis.domain,expertId,expertScore,JSON.stringify(analysis),proposedResponse,journey.stages.policy.decision,authorization,'EXECUTED','HTTP_RESPONSE','RESPONDED','SUCCESS',correlationId,'RUNTIME_GENERATED_PENDING_VERIFIER',process.env.SOURCE_BUILD||'UNKNOWN',startedAt,finishedAt
     ]);
   return json(res,200,{golden_path:'PASS',...result});
 }
@@ -158,12 +169,10 @@ async function main(req,res){
   const u=new URL(req.url,`http://${req.headers.host}`);
   if(req.method==='OPTIONS') return json(res,204,{}, {'access-control-allow-methods':'GET,POST,OPTIONS','access-control-allow-headers':'content-type'});
   if(req.method==='GET'&&u.pathname==='/api/v1/golden/health') return json(res,200,{service:'afagh-golden-business-request-runtime',status:'CONTROLLED',port:PUBLIC_PORT,build:process.env.SOURCE_BUILD||'UNKNOWN'});
-  if(req.method==='POST'&&u.pathname==='/api/v1/golden/business-request') { try { return await handleGolden(pool,req,res,u); } catch(e){ console.error(e); return json(res,e.status||500,{error:e.message||'GOLDEN_PATH_FAILED'}); } }
+  if(req.method==='POST'&&u.pathname==='/api/v1/golden/business-request') { try { return await handleGolden(pool,req,res); } catch(e){ console.error(e); return json(res,e.status||500,{error:e.message||'GOLDEN_PATH_FAILED'}); } }
   if(req.method==='GET'&&u.pathname==='/api/v1/golden/business-request/evidence') { try { return await readEvidence(pool,req,res); } catch(e){ console.error(e); return json(res,500,{error:'GOLDEN_EVIDENCE_READ_FAILED'}); } }
-  const targetPort = Number(process.env.COMMUNICATION_GATEWAY_PORT || (PUBLIC_PORT+1));
-  const p=http.request({hostname:'127.0.0.1',port:targetPort,path:req.url,method:req.method,headers:req.headers},r=>{res.writeHead(r.statusCode||500,r.headers);r.pipe(res);});
-  p.on('error',()=>json(res,502,{error:'COMMUNICATION_GATEWAY_UNAVAILABLE'}));
-  req.pipe(p);
+  return null;
 }
 
-http.createServer((req,res)=>main(req,res).catch(e=>{console.error(e);json(res,500,{error:'internal_error'});})).listen(PUBLIC_PORT,'0.0.0.0',()=>console.log(`Golden Business Request Path listening on :${PUBLIC_PORT}`));
+export { main };
+
