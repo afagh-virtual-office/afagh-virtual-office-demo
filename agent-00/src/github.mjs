@@ -1,41 +1,5 @@
-const API = "https://api.github.com";
-
-export async function githubRequest(path, options = {}) {
-  const token = process.env.AFAGH_GITHUB_TOKEN || process.env.GITHUB_TOKEN || "";
-  if (!token) return {ok:false, status:503, error:"github_token_not_configured"};
-  const res = await fetch(API + path, {
-    ...options,
-    headers: {
-      "accept":"application/vnd.github+json",
-      "x-github-api-version":"2022-11-28",
-      "authorization":`Bearer ${token}`,
-      ...(options.headers || {})
-    }
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = {raw:text}; }
-  return {ok:res.ok,status:res.status,data};
-}
-
-export async function getRepository(fullName) {
-  return githubRequest(`/repos/${encodeURIComponent(fullName).replace("%2F","/")}`);
-}
-
-export async function getBranch(fullName, branch) {
-  return githubRequest(`/repos/${encodeURIComponent(fullName).replace("%2F","/")}/branches/${encodeURIComponent(branch)}`);
-}
-
-export async function getCoreRepositoryStatus() {
-  const fullName = process.env.AFAGH_CORE_REPOSITORY || "afagh-virtual-office/afagh-virtual-office";
-  const result = await getRepository(fullName);
-  return {
-    repository: fullName,
-    reachable: result.ok,
-    status: result.status,
-    exists: result.ok,
-    private: result.ok ? !!result.data.private : null,
-    defaultBranch: result.ok ? result.data.default_branch : null,
-    error: result.ok ? null : (result.data?.message || result.error || "github_request_failed")
-  };
-}
+const API="https://api.github.com";
+export async function githubRequest(path,options={}){const token=process.env.AFAGH_GITHUB_TOKEN||process.env.GITHUB_TOKEN||"";if(!token)return{ok:false,status:503,error:"github_token_not_configured"};const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);try{const res=await fetch(API+path,{...options,signal:c.signal,headers:{"accept":"application/vnd.github+json","x-github-api-version":"2022-11-28","authorization":"Bearer "+token,...(options.headers||{})}});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={raw:text}}return{ok:res.ok,status:res.status,data}}catch(e){return{ok:false,status:502,error:e?.name==="AbortError"?"github_request_timeout":"github_request_failed"}}finally{clearTimeout(t)}}
+export async function getRepository(fullName){return githubRequest("/repos/"+fullName.split("/").map(encodeURIComponent).join("/"))}
+export async function getBranch(fullName,branch){return githubRequest("/repos/"+fullName.split("/").map(encodeURIComponent).join("/")+"/branches/"+encodeURIComponent(branch))}
+export async function getCoreRepositoryStatus(){const fullName=process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office";const result=await getRepository(fullName);return{repository:fullName,reachable:result.ok,status:result.status,exists:result.ok,private:result.ok?!!result.data.private:null,defaultBranch:result.ok?result.data.default_branch:null,error:result.ok?null:(result.data?.message||result.error||"github_request_failed")}}
