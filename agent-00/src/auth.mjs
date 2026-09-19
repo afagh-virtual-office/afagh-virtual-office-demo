@@ -9,7 +9,7 @@ export function requireBearer(req, requiredRole = "operator") {
   const viewer = process.env.AFAGH_AGENT00_VIEWER_TOKEN || "";
   const expected = requiredRole === "viewer" ? [admin, viewer].filter(Boolean) : [admin].filter(Boolean);
   if (!expected.length) return {ok:false, status:503, error:"authentication_not_configured"};
-  const valid = expected.some(v => crypto.timingSafeEqual(Buffer.from(token), Buffer.from(v)));
+  const valid = expected.some(v => { const a=Buffer.from(token); const b=Buffer.from(v); return a.length===b.length && crypto.timingSafeEqual(a,b); });
   return valid ? {ok:true, role: token === admin ? "operator" : "viewer"} : {ok:false, status:403, error:"invalid_bearer_token"};
 }
 
