@@ -1,0 +1,23 @@
+name: Agent 00 tests
+on:
+  push:
+    branches: [agent-00]
+  pull_request:
+    branches: [agent-00]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-00
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --omit=dev
+      - run: node --check src/server.mjs
+      - run: node --check src/auth.mjs
+      - run: node --check src/state.mjs
+      - run: node --check src/github.mjs
+      - run: npm test
