@@ -38,15 +38,96 @@ const gates=[
  ["G11_PRODUCTION_RELEASE","Production Release","LOCKED"]
 ].map(([id,name,status])=>({id,name,status}));
 
-const tasks=[{id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED",gate:"G01_CORE_REPOSITORY",owner:"Agent 00"}];
+const tasks=[{id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED",gate:"G01_CORE_REPOSITORY",owner:"Agent 00",priority:"P0",nextAction:"Verify Core repository exposure to the connected GitHub integration."}];
 const decisions=[{id:"D-001",title:"Demo is not Core",status:"LOCKED",reason:"Protect Core/Demo boundary."}];
 const audit=[{id:"A-001",severity:"BLOCKER",gate:"G01_CORE_REPOSITORY",finding:project.blocker,status:"OPEN"}];
 let state = createState({project,teams,gates,tasks,decisions,audit});
+state.orchestrator = {
+  status:"ACTIVE_OPERATIONAL_CONTROL",
+  lastCycleAt:null,
+  cycleCount:0,
+  currentAction:null,
+  nextAction:"Resolve G01 Core Repository blocker, then route the gate through four-team deliberation and audit.",
+  managedBy:"Agent 00",
+  executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."
+};
 async function persist(){await saveState(pool,state)}
 function auth(req,res,role="operator"){const a=requireBearer(req,role);if(!a.ok){json(res,a.status,{error:a.error});return null}return a}
 async function body(req){const chunks=[];for await(const c of req)chunks.push(c);if(!chunks.length)return {};try{return JSON.parse(Buffer.concat(chunks).toString("utf8"))}catch{return null}}
 function gate(id){return state.gates.find(g=>g.id===id)}
 function actor(req){return auditActor(req)}
+function upsertManagedTask(task){
+  const existing=state.tasks.find(t=>t.id===task.id);
+  if(existing) Object.assign(existing,task);
+  else state.tasks.push(task);
+  return existing||task;
+}
+async function orchestrationCycle(source="manual"){
+  const current=gate(state.project.currentGate);
+  const cycleId=cryptoRandom();
+  state.orchestrator.cycleCount += 1;
+  state.orchestrator.lastCycleAt = new Date().toISOString();
+  let action;
+  if(!current){
+    action={type:"STOP",reason:"current_gate_missing"};
+  } else if(current.status==="BLOCKED" || state.audit.some(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN")){
+    if(current.id==="G01_CORE_REPOSITORY"){
+      const core=await getCoreRepositoryStatus();
+      if(core.exists){
+        const blocker=state.audit.find(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
+        if(blocker) blocker.status="RESOLVED";
+        const t=state.tasks.find(x=>x.gate===current.id&&x.status==="BLOCKED");
+        if(t) Object.assign(t,{status:"READY_FOR_DELIBERATION",nextAction:"Four teams must review Core Repository evidence."});
+        state.project.blocker=null;
+        current.status="OPEN";
+        state.project.gateStatus="OPEN";
+        action={type:"ROUTE_TO_DELIBERATION",gate:current.id,evidence:core};
+      }else{
+        upsertManagedTask({id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED",gate:current.id,owner:"Agent 00",priority:"P0",nextAction:"Restore/expose afagh-virtual-office/afagh-virtual-office to the connected GitHub integration."});
+        action={type:"BLOCKED",gate:current.id,reason:"Core repository is not reachable",evidence:core};
+      }
+    }else{
+      action={type:"BLOCKED",gate:current.id,reason:"Open blocker findings prevent execution."};
+    }
+  } else {
+    const deliberations=state.deliberations.filter(d=>d.gate===current.id);
+    const missing=state.teams.map(t=>t.id).filter(id=>!deliberations.some(d=>d.teamId===id));
+    if(missing.length){
+      action={type:"REQUEST_TEAM_DELIBERATION",gate:current.id,teams:missing};
+      for(const teamId of missing) upsertManagedTask({
+        id:`DREQ-${current.id}-${teamId}`,
+        title:`Deliberation required: ${current.name}`,
+        status:"WAITING_TEAM",
+        gate:current.id,
+        owner:teamId,
+        priority:"P0",
+        nextAction:"Submit APPROVE, REJECT, or CONDITIONAL deliberation with findings."
+      });
+    }else{
+      const approvals=state.teams.filter(t=>deliberations.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);
+      const rejects=deliberations.filter(d=>d.decision==="REJECT").map(d=>d.teamId);
+      if(rejects.length){
+        action={type:"REWORK_REQUIRED",gate:current.id,rejectedBy:rejects};
+      }else if(approvals.length===state.teams.length){
+        action={type:"AUDIT_AND_GATE_DECISION_REQUIRED",gate:current.id,approvals};
+      }else{
+        action={type:"DELIBERATION_IN_PROGRESS",gate:current.id,approvals};
+      }
+    }
+  }
+  state.orchestrator.currentAction=action;
+  state.orchestrator.nextAction=action.type==="BLOCKED"
+    ? action.reason
+    : action.type==="REQUEST_TEAM_DELIBERATION"
+      ? `Collect deliberations from: ${action.teams.join(", ")}`
+      : action.type==="AUDIT_AND_GATE_DECISION_REQUIRED"
+        ? `Audit gate ${current.id}; advance only after evidence and blocker review.`
+        : `Continue controlled execution for ${current.id}.`;
+  appendEvent(state,"ORCHESTRATION_CYCLE",source,{cycleId,action});
+  await persist();
+  return {cycleId,orchestrator:state.orchestrator,action,project:state.project};
+}
+function cryptoRandom(){return `CYC-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;}
 
 async function dbReady(){ if(!pool) return false; try{await pool.query("select 1");return true}catch{return false}}
 async function initDb(){
@@ -74,13 +155,15 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
  if(req.method==="GET"&&u.pathname==="/api/v1/decisions")return json(res,200,decisions);
  if(req.method==="GET"&&u.pathname==="/api/v1/audit")return json(res,200,state.audit);
+ if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status))});
  if(req.method==="GET"&&u.pathname==="/api/v1/events")return json(res,200,state.events);
  if(req.method==="GET"&&u.pathname==="/api/v1/deliberations")return json(res,200,state.deliberations);
  if(req.method==="GET"&&u.pathname==="/api/v1/github/core-status")return json(res,200,await getCoreRepositoryStatus());
+ if(req.method==="POST"&&u.pathname==="/api/v1/orchestrator/cycle"){const a=auth(req,res);if(!a)return;return json(res,200,await orchestrationCycle("api"))}
  if(req.method==="POST"&&u.pathname==="/api/v1/deliberations"){const a=auth(req,res);if(!a)return;const b=await body(req);if(!b||!b.gate||!b.teamId||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_deliberation"});if(!state.teams.some(t=>t.id===b.teamId)||!gate(b.gate))return json(res,400,{error:"unknown_team_or_gate"});const d={id:`D-${Date.now()}`,gate:b.gate,teamId:b.teamId,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:a.role,at:new Date().toISOString()};state.deliberations=state.deliberations.filter(x=>!(x.gate===d.gate&&x.teamId===d.teamId));state.deliberations.push(d);appendEvent(state,"TEAM_DELIBERATION",actor(req),d);await persist();return json(res,201,d)}
  if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){const a=auth(req,res);if(!a)return;const b=await body(req);const id=b?.gate||state.project.currentGate;if(!gate(id))return json(res,404,{error:"unknown_gate"});const ds=state.deliberations.filter(d=>d.gate===id);const approvals=state.teams.filter(t=>ds.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);const blockers=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");const result={gate:id,eligible:approvals.length===state.teams.length&&blockers.length===0,approvals,missingApprovals:state.teams.map(t=>t.id).filter(id=>!approvals.includes(id)),blockingFindings:blockers};appendEvent(state,"GATE_EVALUATION",actor(req),result);await persist();return json(res,200,result)}
  if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){const a=auth(req,res);if(!a)return;const current=gate(state.project.currentGate);const ds=state.deliberations.filter(d=>d.gate===current.id);const missing=state.teams.map(t=>t.id).filter(id=>!ds.some(d=>d.teamId===id&&d.decision==="APPROVE"));const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");if(missing.length||blocking.length)return json(res,409,{error:"gate_blocked",gate:current.id,missingApprovals:missing,blockingFindings:blocking});current.status="PASSED";const i=state.gates.findIndex(g=>g.id===current.id);if(i<state.gates.length-1){state.gates[i+1].status="OPEN";state.project.currentGate=state.gates[i+1].id;state.project.gateStatus="OPEN";state.project.blocker=null}else{state.project.gateStatus="PASSED";state.project.releaseClass="RELEASED"}appendEvent(state,"GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate});await persist();return json(res,200,{ok:true,project:state.project,gates:state.gates})}
  json(res,404,{error:"not_found"});
 });
-loadState(pool,state).then(s=>{state=s}).catch(e=>console.error("state_load_failed",e.message));
+loadState(pool,state).then(s=>{state=s;if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; orchestrationCycle("startup").catch(e=>console.error("orchestration_cycle_failed",e.message));}).catch(e=>console.error("state_load_failed",e.message));
 server.listen(PORT,"0.0.0.0",()=>console.log(`AFAGH Agent 00 listening on ${PORT}`));
