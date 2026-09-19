@@ -1,14 +1,14 @@
 import http from "node:http";
 import { URL } from "node:url";
-import { requireBearer, auditActor } from "./auth.mjs";
-import { createState, appendEvent, loadState, saveState } from "./state.mjs";
+import { requireBearer, requireTeamBearer, auditActor } from "./auth.mjs";
+import { createState, appendEvent, appendEvidence, verifyEvidence, loadState, saveState } from "./state.mjs";
 import { getCoreRepositoryStatus } from "./github.mjs";
 import pg from "pg";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const pool = DATABASE_URL ? new Pool({connectionString:DATABASE_URL,ssl:process.env.PGSSL==="disable"?false:{rejectUnauthorized:false}}) : null;
+const pool = DATABASE_URL ? new Pool({connectionString:DATABASE_URL,ssl:process.env.PGSSL==="disable"?false:{rejectUnauthorized:false},max:5,connectionTimeoutMillis:5000,idleTimeoutMillis:10000}) : null;
 
 const project = {
   id:"AFAGH-ORCH-001", name:"AFAGH Agent 00", mode:"CONTROLLED_EXECUTION",
@@ -42,6 +42,9 @@ const tasks=[{id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED"
 const decisions=[{id:"D-001",title:"Demo is not Core",status:"LOCKED",reason:"Protect Core/Demo boundary."}];
 const audit=[{id:"A-001",severity:"BLOCKER",gate:"G01_CORE_REPOSITORY",finding:project.blocker,status:"OPEN"}];
 let state = createState({project,teams,gates,tasks,decisions,audit});
+function normalizeState(s){s.orchestrator ??= {status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."};s.deliberations ??= [];s.auditDecisions ??= [];s.evidence ??= [];s.events ??= [];s.version ??= 1;return s}
+function record(type,actor,payload){appendEvent(state,type,actor,payload);return appendEvidence(state,type,actor,payload)}
+async function readiness(){const database=await dbReady();const authConfigured=Boolean(process.env.AFAGH_AGENT00_ADMIN_TOKEN);const evidence=verifyEvidence(state);return {ready:database&&authConfigured&&evidence.valid,database,authConfigured,evidence,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,timestamp:new Date().toISOString()}}
 state.orchestrator = {
   status:"ACTIVE_OPERATIONAL_CONTROL",
   lastCycleAt:null,
@@ -73,6 +76,7 @@ async function orchestrationCycle(source="manual"){
   } else if(current.status==="BLOCKED" || state.audit.some(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN")){
     if(current.id==="G01_CORE_REPOSITORY"){
       const core=await getCoreRepositoryStatus();
+      record("CORE_REPOSITORY_CHECK","Agent 00",core);
       if(core.exists){
         const blocker=state.audit.find(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
         if(blocker) blocker.status="RESOLVED";
@@ -85,9 +89,11 @@ async function orchestrationCycle(source="manual"){
       }else{
         upsertManagedTask({id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED",gate:current.id,owner:"Agent 00",priority:"P0",nextAction:"Restore/expose afagh-virtual-office/afagh-virtual-office to the connected GitHub integration."});
         action={type:"BLOCKED",gate:current.id,reason:"Core repository is not reachable",evidence:core};
+        record("ORCHESTRATION_BLOCKED","Agent 00",action);
       }
     }else{
       action={type:"BLOCKED",gate:current.id,reason:"Open blocker findings prevent execution."};
+      record("ORCHESTRATION_BLOCKED","Agent 00",action);
     }
   } else {
     const deliberations=state.deliberations.filter(d=>d.gate===current.id);
@@ -123,7 +129,7 @@ async function orchestrationCycle(source="manual"){
       : action.type==="AUDIT_AND_GATE_DECISION_REQUIRED"
         ? `Audit gate ${current.id}; advance only after evidence and blocker review.`
         : `Continue controlled execution for ${current.id}.`;
-  appendEvent(state,"ORCHESTRATION_CYCLE",source,{cycleId,action});
+  record("ORCHESTRATION_CYCLE","Agent 00",{cycleId,source,action});
   await persist();
   return {cycleId,orchestrator:state.orchestrator,action,project:state.project};
 }
@@ -150,6 +156,8 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/"){res.writeHead(200,{"content-type":"text/html; charset=utf-8"});return res.end(dashboard())}
  if(req.method==="GET"&&u.pathname==="/api/v1/health")return json(res,200,{service:"afagh-agent-00",status:"ok",mode:project.mode,currentGate:project.currentGate,gateStatus:project.gateStatus,database:await dbReady(),timestamp:new Date().toISOString()});
  if(req.method==="GET"&&u.pathname==="/api/v1/project")return json(res,200,state.project);
+ if(req.method==="GET"&&u.pathname==="/api/v1/ready"){const r=await readiness();return json(res,r.ready?200:503,r)}
+ if(req.method==="GET"&&u.pathname==="/api/v1/evidence")return json(res,200,{verification:verifyEvidence(state),items:state.evidence});
  if(req.method==="GET"&&u.pathname==="/api/v1/gates")return json(res,200,state.gates);
  if(req.method==="GET"&&u.pathname==="/api/v1/teams")return json(res,200,state.teams);
  if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
@@ -160,10 +168,11 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/deliberations")return json(res,200,state.deliberations);
  if(req.method==="GET"&&u.pathname==="/api/v1/github/core-status")return json(res,200,await getCoreRepositoryStatus());
  if(req.method==="POST"&&u.pathname==="/api/v1/orchestrator/cycle"){const a=auth(req,res);if(!a)return;return json(res,200,await orchestrationCycle("api"))}
- if(req.method==="POST"&&u.pathname==="/api/v1/deliberations"){const a=auth(req,res);if(!a)return;const b=await body(req);if(!b||!b.gate||!b.teamId||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_deliberation"});if(!state.teams.some(t=>t.id===b.teamId)||!gate(b.gate))return json(res,400,{error:"unknown_team_or_gate"});const d={id:`D-${Date.now()}`,gate:b.gate,teamId:b.teamId,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:a.role,at:new Date().toISOString()};state.deliberations=state.deliberations.filter(x=>!(x.gate===d.gate&&x.teamId===d.teamId));state.deliberations.push(d);appendEvent(state,"TEAM_DELIBERATION",actor(req),d);await persist();return json(res,201,d)}
- if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){const a=auth(req,res);if(!a)return;const b=await body(req);const id=b?.gate||state.project.currentGate;if(!gate(id))return json(res,404,{error:"unknown_gate"});const ds=state.deliberations.filter(d=>d.gate===id);const approvals=state.teams.filter(t=>ds.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);const blockers=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");const result={gate:id,eligible:approvals.length===state.teams.length&&blockers.length===0,approvals,missingApprovals:state.teams.map(t=>t.id).filter(id=>!approvals.includes(id)),blockingFindings:blockers};appendEvent(state,"GATE_EVALUATION",actor(req),result);await persist();return json(res,200,result)}
- if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){const a=auth(req,res);if(!a)return;const current=gate(state.project.currentGate);const ds=state.deliberations.filter(d=>d.gate===current.id);const missing=state.teams.map(t=>t.id).filter(id=>!ds.some(d=>d.teamId===id&&d.decision==="APPROVE"));const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");if(missing.length||blocking.length)return json(res,409,{error:"gate_blocked",gate:current.id,missingApprovals:missing,blockingFindings:blocking});current.status="PASSED";const i=state.gates.findIndex(g=>g.id===current.id);if(i<state.gates.length-1){state.gates[i+1].status="OPEN";state.project.currentGate=state.gates[i+1].id;state.project.gateStatus="OPEN";state.project.blocker=null}else{state.project.gateStatus="PASSED";state.project.releaseClass="RELEASED"}appendEvent(state,"GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate});await persist();return json(res,200,{ok:true,project:state.project,gates:state.gates})}
+ if(req.method==="POST"&&u.pathname==="/api/v1/deliberations"){const b=await body(req);if(!b||!b.gate||!b.teamId||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_deliberation"});if(!state.teams.some(t=>t.id===b.teamId)||!gate(b.gate))return json(res,400,{error:"unknown_team_or_gate"});const ta=requireTeamBearer(req,b.teamId);if(!ta.ok)return json(res,ta.status,{error:ta.error,teamId:b.teamId});const d={id:`D-${Date.now()}`,gate:b.gate,teamId:b.teamId,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:`team:${b.teamId}`,at:new Date().toISOString()};state.deliberations=state.deliberations.filter(x=>!(x.gate===d.gate&&x.teamId===d.teamId));state.deliberations.push(d);record("TEAM_DELIBERATION",`team:${b.teamId}`,d);await persist();return json(res,201,d)}
+ if(req.method==="POST"&&u.pathname==="/api/v1/audit/decision"){const ta=requireTeamBearer(req,"T04");if(!ta.ok)return json(res,ta.status,{error:ta.error,teamId:"T04"});const b=await body(req);if(!b||!b.gate||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_audit_decision"});if(!gate(b.gate))return json(res,400,{error:"unknown_gate"});const d={id:`AUD-${Date.now()}`,gate:b.gate,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:"team:T04",at:new Date().toISOString()};state.auditDecisions=state.auditDecisions.filter(x=>x.gate!==d.gate);state.auditDecisions.push(d);record("INDEPENDENT_AUDIT_DECISION","team:T04",d);await persist();return json(res,201,d)}
+ if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){const a=auth(req,res);if(!a)return;const b=await body(req);const id=b?.gate||state.project.currentGate;if(!gate(id))return json(res,404,{error:"unknown_gate"});const ds=state.deliberations.filter(d=>d.gate===id);const approvals=state.teams.filter(t=>ds.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);const blockers=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===id);const evidence=verifyEvidence(state);const result={gate:id,eligible:approvals.length===state.teams.length&&auditDecision?.decision==="APPROVE"&&blockers.length===0&&evidence.valid,approvals,missingApprovals:state.teams.map(t=>t.id).filter(id=>!approvals.includes(id)),auditDecision:auditDecision||null,blockingFindings:blockers,evidence};record("GATE_EVALUATION",actor(req),result);await persist();return json(res,200,result)}
+ if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){const a=auth(req,res);if(!a)return;const current=gate(state.project.currentGate);const ds=state.deliberations.filter(d=>d.gate===current.id);const missing=state.teams.map(t=>t.id).filter(id=>!ds.some(d=>d.teamId===id&&d.decision==="APPROVE"));const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===current.id);const evidence=verifyEvidence(state);if(missing.length||blocking.length||auditDecision?.decision!=="APPROVE"||!evidence.valid)return json(res,409,{error:"gate_blocked",gate:current.id,missingApprovals:missing,blockingFindings:blocking,auditDecision:auditDecision||null,evidence});current.status="PASSED";const i=state.gates.findIndex(g=>g.id===current.id);if(i<state.gates.length-1){state.gates[i+1].status="OPEN";state.project.currentGate=state.gates[i+1].id;state.project.gateStatus="OPEN";state.project.blocker=null}else{state.project.gateStatus="PASSED";state.project.releaseClass="RELEASED"}record("GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate});await persist();return json(res,200,{ok:true,project:state.project,gates:state.gates})}
  json(res,404,{error:"not_found"});
 });
-loadState(pool,state).then(s=>{state=s;if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; orchestrationCycle("startup").catch(e=>console.error("orchestration_cycle_failed",e.message));}).catch(e=>console.error("state_load_failed",e.message));
+loadState(pool,state).then(s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; orchestrationCycle("startup").catch(e=>console.error("orchestration_cycle_failed",e.message));}).catch(e=>console.error("state_load_failed",e.message));
 server.listen(PORT,"0.0.0.0",()=>console.log(`AFAGH Agent 00 listening on ${PORT}`));
