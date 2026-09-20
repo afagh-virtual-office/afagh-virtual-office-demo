@@ -448,6 +448,8 @@ const server=http.createServer(async(req,res)=>{
    const readinessState=await readiness();
    const blockers=state.audit.filter(x=>x.severity==="BLOCKER"&&x.status==="OPEN");
    const productionGate=gate("G11_PRODUCTION_RELEASE");
+   const latestModuleTest=[...state.evidence].reverse().find(x=>x.type==="STARTUP_HTTP_E2E");
+   const moduleActivation=Boolean(latestModuleTest?.payload?.passed===true && latestModuleTest?.payload?.assertions?.allModulesActive===true);
    const result={
      service:"afagh-agent-00",
      runtime:"LIVE",
@@ -458,6 +460,7 @@ const server=http.createServer(async(req,res)=>{
      runtimeReadiness:readinessState,
      productionGate:productionGate||null,
      openBlockers:blockers,
+     moduleActivation:{verified:moduleActivation,lastTest:latestModuleTest?.payload?.assertions||null},
      releaseEligible:Boolean(
        productionGate?.status==="PASSED" &&
        state.project.gateStatus==="PASSED" &&
@@ -466,7 +469,8 @@ const server=http.createServer(async(req,res)=>{
        core.reachable===true &&
        core.exists===true &&
        core.private===true &&
-       core.branchVerified===true
+       core.branchVerified===true &&
+       moduleActivation===true
      ),
      checkedAt:new Date().toISOString()
    };
