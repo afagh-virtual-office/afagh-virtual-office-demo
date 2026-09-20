@@ -6,6 +6,7 @@ import { createState, appendEvent, appendEvidence, verifyEvidence, loadState, sa
 import { getCoreRepositoryStatus } from "./github.mjs";
 import pg from "pg";
 import { startAutonomousWorkLoop } from "./autonomous-loop.mjs";
+import { executeCorePlan } from "./executor.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
@@ -66,6 +67,15 @@ function upsertManagedTask(task){
   if(existing) Object.assign(existing,task);
   else state.tasks.push(task);
   return existing||task;
+}
+function executionEligible(task){return Boolean(task?.executionPlan && task.status==="APPROVED_FOR_EXECUTION" && state.project.gateStatus==="OPEN" && state.audit.filter(x=>x.gate===state.project.currentGate&&x.severity==="BLOCKER"&&x.status==="OPEN").length===0)}
+async function executeApprovedTask(task){
+  if(!executionEligible(task)) return {skipped:true,reason:"task_or_gate_not_execution_eligible"};
+  const result=await executeCorePlan(task.executionPlan);
+  task.status="EXECUTED_PENDING_TEST"; task.execution=result; task.nextAction="Run repository CI/tests and collect evidence before gate evaluation.";
+  record("TASK_EXECUTED","Agent 00",{taskId:task.id,result});
+  await persist();
+  return result;
 }
 async function orchestrationCycle(source="manual"){
   const current=gate(state.project.currentGate);
@@ -155,14 +165,14 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/evidence")return json(res,200,{verification:verifyEvidence(state),items:state.evidence});
  if(req.method==="GET"&&u.pathname==="/api/v1/gates")return json(res,200,state.gates);
  if(req.method==="GET"&&u.pathname==="/api/v1/teams")return json(res,200,state.teams);
- if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
+ if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);\n if(req.method==="GET"&&u.pathname==="/api/v1/execution/status")return json(res,200,{mode:"CONTROLLED_CORE_EXECUTION",coreRepository:process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office",directMainWrites:false,executor:"allowlisted-plan-engine",eligibleTasks:state.tasks.filter(executionEligible).map(t=>t.id)});
  if(req.method==="GET"&&u.pathname==="/api/v1/decisions")return json(res,200,decisions);
  if(req.method==="GET"&&u.pathname==="/api/v1/audit")return json(res,200,state.audit);
  if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status)),autonomousLoop:autonomousLoop.status});
  if(req.method==="GET"&&u.pathname==="/api/v1/events")return json(res,200,state.events);
  if(req.method==="GET"&&u.pathname==="/api/v1/deliberations")return json(res,200,state.deliberations);
  if(req.method==="GET"&&u.pathname==="/api/v1/github/core-status")return json(res,200,await getCoreRepositoryStatus());
- if(req.method==="POST"&&u.pathname==="/api/v1/orchestrator/cycle"){const a=auth(req,res);if(!a)return;return json(res,200,await orchestrationCycle("api"))}
+ if(req.method==="POST"&&u.pathname==="/api/v1/orchestrator/cycle"){const a=auth(req,res);if(!a)return;const result=await orchestrationCycle("api");const task=state.tasks.find(executionEligible);if(task)result.execution=await executeApprovedTask(task);return json(res,200,result)}
  if(req.method==="POST"&&u.pathname==="/api/v1/deliberations"){const b=await body(req);if(!b||!b.gate||!b.teamId||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_deliberation"});if(!state.teams.some(t=>t.id===b.teamId)||!gate(b.gate))return json(res,400,{error:"unknown_team_or_gate"});const ta=requireTeamBearer(req,b.teamId);if(!ta.ok)return json(res,ta.status,{error:ta.error,teamId:b.teamId});const d={id:`D-${Date.now()}`,gate:b.gate,teamId:b.teamId,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:`team:${b.teamId}`,at:new Date().toISOString()};state.deliberations=state.deliberations.filter(x=>!(x.gate===d.gate&&x.teamId===d.teamId));state.deliberations.push(d);record("TEAM_DELIBERATION",`team:${b.teamId}`,d);await persist();return json(res,201,d)}
  if(req.method==="POST"&&u.pathname==="/api/v1/audit/decision"){const ta=requireTeamBearer(req,"T04");if(!ta.ok)return json(res,ta.status,{error:ta.error,teamId:"T04"});const b=await body(req);if(!b||!b.gate||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_audit_decision"});if(!gate(b.gate))return json(res,400,{error:"unknown_gate"});const d={id:`AUD-${Date.now()}`,gate:b.gate,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:"team:T04",at:new Date().toISOString()};state.auditDecisions=state.auditDecisions.filter(x=>x.gate!==d.gate);state.auditDecisions.push(d);record("INDEPENDENT_AUDIT_DECISION","team:T04",d);await persist();return json(res,201,d)}
  if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){const a=auth(req,res);if(!a)return;const b=await body(req);const id=b?.gate||state.project.currentGate;if(!gate(id))return json(res,404,{error:"unknown_gate"});const ds=state.deliberations.filter(d=>d.gate===id);const approvals=state.teams.filter(t=>ds.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);const blockers=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===id);const evidence=verifyEvidence(state);const result={gate:id,eligible:approvals.length===state.teams.length&&auditDecision?.decision==="APPROVE"&&blockers.length===0&&evidence.valid,approvals,missingApprovals:state.teams.map(t=>t.id).filter(id=>!approvals.includes(id)),auditDecision:auditDecision||null,blockingFindings:blockers,evidence};record("GATE_EVALUATION",actor(req),result);await persist();return json(res,200,result)}
