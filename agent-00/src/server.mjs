@@ -150,7 +150,40 @@ async function orchestrationCycle(source="manual"){
       if(rejects.length){
         action={type:"REWORK_REQUIRED",gate:current.id,rejectedBy:rejects};
       }else if(approvals.length===state.teams.length){
-        action={type:"AUDIT_AND_GATE_DECISION_REQUIRED",gate:current.id,approvals};
+        const evidenceState=verifyEvidence(state);
+        const technical=await evaluateGateEvidence({
+          gateId:current.id,
+          state,
+          dbReady:await dbReady(),
+          autonomousLoopStatus:autonomousLoop.status,
+          evidenceValid:evidenceState.valid
+        });
+        const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
+        const auditDecision=state.auditDecisions.find(d=>d.gate===current.id);
+        const canAdvance=Boolean(
+          technical.technical.valid &&
+          auditDecision?.decision==="APPROVE" &&
+          blocking.length===0 &&
+          evidenceState.valid
+        );
+        if(canAdvance){
+          current.status="PASSED";
+          const i=state.gates.findIndex(g=>g.id===current.id);
+          if(i<state.gates.length-1){
+            state.gates[i+1].status="OPEN";
+            state.project.currentGate=state.gates[i+1].id;
+            state.project.gateStatus="OPEN";
+            state.project.blocker=null;
+          }else{
+            state.project.gateStatus="PASSED";
+            state.project.releaseClass="RELEASED";
+          }
+          const transition={gate:current.id,next:state.project.currentGate,technical,evidence:evidenceState,auditDecision};
+          record("GATE_AUTO_ADVANCED","Agent 00",transition);
+          action={type:"GATE_AUTO_ADVANCED",...transition};
+        }else{
+          action={type:"AUDIT_AND_GATE_DECISION_REQUIRED",gate:current.id,approvals,technical,auditDecision};
+        }
       }else{
         action={type:"DELIBERATION_IN_PROGRESS",gate:current.id,approvals};
       }
