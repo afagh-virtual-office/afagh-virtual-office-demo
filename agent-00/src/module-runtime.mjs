@@ -22,7 +22,7 @@ export async function getModuleRegistry({state,dbReady,autonomousLoopStatus}){
       {id:"M03",key:"intelligent-operations",name:"Intelligent Operations",status:autonomousLoopStatus?.enabled?"ACTIVE":"BLOCKED",mode:"AUTONOMOUS_GOVERNED_LOOP",endpoint:"/api/v1/modules/intelligent-operations",cycles:autonomousLoopStatus?.cyclesCompleted||0,capabilities:["orchestration","tasks","gate-advance"]},
       {id:"M04",key:"governance",name:"Governance & Decision Room",status:(state?.teams?.length===3&&state?.gates?.length===11)?"ACTIVE":"BLOCKED",mode:"GATE_BASED",endpoint:"/api/v1/modules/governance",teams:state?.teams?.length||0,currentGate:state?.project?.currentGate},
       {id:"M05",key:"evidence",name:"Evidence Center",status:evidence.length?"ACTIVE":"BLOCKED",mode:"HASH_CHAINED",endpoint:"/api/v1/modules/evidence",count:evidence.length,integrity:evidence.length?"VERIFIED_BY_RUNTIME":"EMPTY"},
-      {id:"M06",key:"communication",name:"Communication OS",status:communication.status==="CONTROLLED"?"ACTIVE":"BLOCKED",mode:"EXTERNAL_RUNTIME_BOUND",endpoint:COMMUNICATION_URL,health:communication},
+      {id:"M06",key:"communication",name:"Communication OS",status:dbReady?"ACTIVE":"BLOCKED",mode:"AGENT00_LOCAL_RUNTIME",endpoint:"/api/v1/communication/health",health:{local:true,status:dbReady?"CONTROLLED":"BLOCKED",external:communication}},
       {id:"M07",key:"authentication",name:"Authentication & Identity",status:process.env.AFAGH_AGENT00_ADMIN_TOKEN?"ACTIVE":"BLOCKED",mode:"BEARER_RUNTIME",endpoint:"/api/v1/modules/authentication"},
       {id:"M08",key:"settings",name:"System Settings",status:dbReady?"ACTIVE":"BLOCKED",mode:"CONTROLLED_CONFIG",endpoint:"/api/v1/modules/settings"}
     ]
