@@ -17,15 +17,14 @@ const project = {
   id:"AFAGH-ORCH-001", name:"AFAGH Agent 00", mode:"CONTROLLED_EXECUTION",
   releaseClass:"PRE_PRODUCTION", authority:"AFAGH Project Orchestrator",
   currentGate:"G01_CORE_REPOSITORY", gateStatus:"BLOCKED",
-  blocker:"Core repository afagh-virtual-office/afagh-virtual-office is not currently exposed to the connected GitHub integration.",
+  blocker:"Runtime GitHub access must be verified with its own credential; ChatGPT connector access is not inherited by Render.",
   rule:"Search → Reuse → Extend → Refactor → Test",
   protocol:["Request","Team Deliberation","Audit","Gate","Implementation","Test","Evidence"]
 };
 const teams=[
  {id:"T01",name:"Architecture & Technology",canBlock:false},
  {id:"T02",name:"Domain / Business / Trade",canBlock:false},
- {id:"T03",name:"Security / Quality / Governance",canBlock:false},
- {id:"T04",name:"AI & Intelligence Architecture",canBlock:false}
+ {id:"T03",name:"Security / Quality / Governance",canBlock:false}
 ];
 const gates=[
  ["G01_CORE_REPOSITORY","Core Repository","BLOCKED"],
@@ -45,7 +44,7 @@ const tasks=[{id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED"
 const decisions=[{id:"D-001",title:"Demo is not Core",status:"LOCKED",reason:"Protect Core/Demo boundary."}];
 const audit=[{id:"A-001",severity:"BLOCKER",gate:"G01_CORE_REPOSITORY",finding:project.blocker,status:"OPEN"}];
 let state = createState({project,teams,gates,tasks,decisions,audit});
-function normalizeState(s){s.orchestrator ??= {status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."};s.deliberations ??= [];s.auditDecisions ??= [];s.evidence ??= [];s.events ??= [];s.version ??= 1;return s}
+function normalizeState(s){s.teams = (s.teams ?? []).filter(t => t.id !== "T04"); if (!s.teams.length) s.teams = teams; s.orchestrator ??= {status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."};s.deliberations ??= [];s.auditDecisions ??= [];s.evidence ??= [];s.events ??= [];s.version ??= 1;return s}
 function record(type,actor,payload){appendEvent(state,type,actor,payload);return appendEvidence(state,type,actor,payload)}
 async function readiness(){const database=await dbReady();const authConfigured=Boolean(process.env.AFAGH_AGENT00_ADMIN_TOKEN);const evidence=verifyEvidence(state);return {ready:database&&authConfigured&&evidence.valid,database,authConfigured,evidence,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,timestamp:new Date().toISOString()}}
 state.orchestrator = {
