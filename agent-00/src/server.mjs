@@ -57,7 +57,7 @@ state.orchestrator = {
   executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."
 };
 async function persist(){await saveState(pool,state)}
-function auth(req,res,role="operator"){const a=requireBearer(req,role);if(!a.ok){json(res,a.status,{error:a.error});return null}return a}
+function auth(req,res,role="operator"){const a=requireBearer(req,role);if(!a.ok){json(res,a.status,{error:a.error});return null}req.__afaghPrincipal=a.role==="operator"?"operator":a.role;return a}
 async function body(req){const chunks=[];for await(const c of req)chunks.push(c);if(!chunks.length)return {};try{return JSON.parse(Buffer.concat(chunks).toString("utf8"))}catch{return null}}
 function gate(id){return state.gates.find(g=>g.id===id)}
 function actor(req){return auditActor(req)}
@@ -202,6 +202,35 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status)),autonomousLoop:autonomousLoop.status});
  if(req.method==="GET"&&u.pathname==="/api/v1/events")return json(res,200,state.events);
  if(req.method==="GET"&&u.pathname==="/api/v1/deliberations")return json(res,200,state.deliberations);
+ if(req.method==="GET"&&u.pathname==="/api/v1/release/status"){
+   const core=await getCoreRepositoryStatus();
+   const readinessState=await readiness();
+   const blockers=state.audit.filter(x=>x.severity==="BLOCKER"&&x.status==="OPEN");
+   const productionGate=gate("G11_PRODUCTION_RELEASE");
+   const result={
+     service:"afagh-agent-00",
+     runtime:"LIVE",
+     releaseClass:state.project.releaseClass,
+     currentGate:state.project.currentGate,
+     gateStatus:state.project.gateStatus,
+     coreRepository:core,
+     runtimeReadiness:readinessState,
+     productionGate:productionGate||null,
+     openBlockers:blockers,
+     releaseEligible:Boolean(
+       productionGate?.status==="PASSED" &&
+       state.project.gateStatus==="PASSED" &&
+       blockers.length===0 &&
+       readinessState.ready &&
+       core.reachable===true &&
+       core.exists===true &&
+       core.private===true &&
+       core.branchVerified===true
+     ),
+     checkedAt:new Date().toISOString()
+   };
+   return json(res,result.releaseEligible?200:503,result);
+ }
  if(req.method==="GET"&&u.pathname==="/api/v1/github/core-status")return json(res,200,await getCoreRepositoryStatus());
  if(req.method==="POST"&&u.pathname==="/api/v1/orchestrator/cycle"){const a=auth(req,res);if(!a)return;const result=await orchestrationCycle("api");const task=state.tasks.find(executionEligible);if(task)result.execution=await executeApprovedTask(task);return json(res,200,result)}
  if(req.method==="POST"&&u.pathname==="/api/v1/deliberations"){const b=await body(req);if(!b||!b.gate||!b.teamId||!["APPROVE","REJECT","CONDITIONAL"].includes(b.decision))return json(res,400,{error:"invalid_deliberation"});if(!state.teams.some(t=>t.id===b.teamId)||!gate(b.gate))return json(res,400,{error:"unknown_team_or_gate"});const ta=requireTeamBearer(req,b.teamId);if(!ta.ok)return json(res,ta.status,{error:ta.error,teamId:b.teamId});const d={id:`D-${Date.now()}`,gate:b.gate,teamId:b.teamId,decision:b.decision,findings:Array.isArray(b.findings)?b.findings.slice(0,50):[],actor:`team:${b.teamId}`,at:new Date().toISOString()};state.deliberations=state.deliberations.filter(x=>!(x.gate===d.gate&&x.teamId===d.teamId));state.deliberations.push(d);record("TEAM_DELIBERATION",`team:${b.teamId}`,d);await persist();return json(res,201,d)}
