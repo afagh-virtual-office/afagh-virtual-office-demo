@@ -7,6 +7,7 @@ import { getCoreRepositoryStatus } from "./github.mjs";
 import pg from "pg";
 import { startAutonomousWorkLoop } from "./autonomous-loop.mjs";
 import { executeCorePlan } from "./executor.mjs";
+import { runStartupSelfTest } from "./startup-self-test.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
@@ -271,5 +272,22 @@ const server=http.createServer(async(req,res)=>{
  json(res,404,{error:"not_found"});
 });
 const autonomousLoop = startAutonomousWorkLoop(orchestrationCycle, { intervalMs: Number(process.env.AFAGH_AGENT00_LOOP_INTERVAL_MS || 60000), runImmediately: false });
-initDb().then(()=>loadState(pool,state)).then(async s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run autonomous work loop.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; await orchestrationCycle("startup"); autonomousLoop.start();}).catch(e=>console.error("state_load_or_loop_failed",e.message));
+
+async function runAndRecordStartupSelfTest(){
+  const token=process.env.AFAGH_AGENT00_ADMIN_TOKEN||"";
+  if(!token){
+    record("STARTUP_HTTP_E2E","Agent 00",{passed:false,reason:"operator_token_missing"});
+    await persist();
+    return;
+  }
+  const result=await runStartupSelfTest({
+    baseUrl:process.env.AFAGH_PUBLIC_BASE_URL||`http://127.0.0.1:${PORT}`,
+    token,
+    tenant:process.env.AFAGH_SELF_TEST_TENANT||"agent00-selftest"
+  });
+  record("STARTUP_HTTP_E2E","Agent 00",result);
+  await persist();
+}
+
+initDb().then(()=>loadState(pool,state)).then(async s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run autonomous work loop.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; await orchestrationCycle("startup"); autonomousLoop.start(); setTimeout(()=>runAndRecordStartupSelfTest().catch(e=>console.error("startup_self_test_failed",e.message)),1500);}).catch(e=>console.error("state_load_or_loop_failed",e.message));
 server.listen(PORT,"0.0.0.0",()=>console.log(`AFAGH Agent 00 listening on ${PORT}`));
