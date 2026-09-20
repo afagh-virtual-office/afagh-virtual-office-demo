@@ -162,7 +162,8 @@ async function orchestrationCycle(source="manual"){
       : action.type==="AUDIT_AND_GATE_DECISION_REQUIRED"
         ? `Audit gate ${current.id}; advance only after evidence and blocker review.`
         : `Continue controlled execution for ${current.id}.`;
-  console.log("orchestration_cycle",JSON.stringify({cycleId,source,gate:state.project.currentGate,gateStatus:state.project.gateStatus,actionType:action.type,actionGate:action.gate||null}));\n  record("ORCHESTRATION_CYCLE","Agent 00",{cycleId,source,action});
+  console.log("orchestration_cycle",JSON.stringify({cycleId,source,gate:state.project.currentGate,gateStatus:state.project.gateStatus,actionType:action.type,actionGate:action.gate||null}));
+  record("ORCHESTRATION_CYCLE","Agent 00",{cycleId,source,action});
   await persist();
   return {cycleId,orchestrator:state.orchestrator,action,project:state.project};
 }
