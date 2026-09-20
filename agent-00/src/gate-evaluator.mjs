@@ -86,7 +86,7 @@ export async function evaluateGateEvidence({gateId,state,dbReady,autonomousLoopS
     result.technical.checks.evidenceValid=Boolean(evidenceValid===true && state?.evidence?.length>=1);
   }else if(gateId==="G09_AUDIT"){
     result.technical.checks.goldenAudit=Boolean(goldenAudit?.payload?.outcome==="SUCCESS");
-    result.technical.checks.auditDecisionRequired=Boolean(governanceAudit || gateId==="G09_AUDIT");
+    result.technical.checks.auditDecisionRequired=Boolean(governanceAudit);
     result.technical.checks.attributableActor=Boolean(goldenAudit?.actor);
   }else if(gateId==="G10_E2E"){
     result.technical.checks.startupE2E=Boolean(startup?.payload?.passed===true);
