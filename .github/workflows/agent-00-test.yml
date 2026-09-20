@@ -1,0 +1,23 @@
+name: Agent 00 Tests
+
+on:
+  push:
+    branches: [agent-00]
+    paths:
+      - "agent-00/**"
+      - ".github/workflows/agent-00-test.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-00
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --omit=dev
+      - run: npm test
