@@ -5,6 +5,7 @@ import { requireBearer, requireTeamBearer, auditActor } from "./auth.mjs";
 import { createState, appendEvent, appendEvidence, verifyEvidence, loadState, saveState } from "./state.mjs";
 import { getCoreRepositoryStatus } from "./github.mjs";
 import pg from "pg";
+import { startAutonomousWorkLoop } from "./autonomous-loop.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
@@ -157,7 +158,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
  if(req.method==="GET"&&u.pathname==="/api/v1/decisions")return json(res,200,decisions);
  if(req.method==="GET"&&u.pathname==="/api/v1/audit")return json(res,200,state.audit);
- if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status))});
+ if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status)),autonomousLoop:autonomousLoop.status});
  if(req.method==="GET"&&u.pathname==="/api/v1/events")return json(res,200,state.events);
  if(req.method==="GET"&&u.pathname==="/api/v1/deliberations")return json(res,200,state.deliberations);
  if(req.method==="GET"&&u.pathname==="/api/v1/github/core-status")return json(res,200,await getCoreRepositoryStatus());
@@ -168,5 +169,6 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){const a=auth(req,res);if(!a)return;const current=gate(state.project.currentGate);const ds=state.deliberations.filter(d=>d.gate===current.id);const missing=state.teams.map(t=>t.id).filter(id=>!ds.some(d=>d.teamId===id&&d.decision==="APPROVE"));const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===current.id);const evidence=verifyEvidence(state);if(missing.length||blocking.length||auditDecision?.decision!=="APPROVE"||!evidence.valid)return json(res,409,{error:"gate_blocked",gate:current.id,missingApprovals:missing,blockingFindings:blocking,auditDecision:auditDecision||null,evidence});current.status="PASSED";const i=state.gates.findIndex(g=>g.id===current.id);if(i<state.gates.length-1){state.gates[i+1].status="OPEN";state.project.currentGate=state.gates[i+1].id;state.project.gateStatus="OPEN";state.project.blocker=null}else{state.project.gateStatus="PASSED";state.project.releaseClass="RELEASED"}record("GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate});await persist();return json(res,200,{ok:true,project:state.project,gates:state.gates})}
  json(res,404,{error:"not_found"});
 });
-loadState(pool,state).then(s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run orchestration cycle.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; orchestrationCycle("startup").catch(e=>console.error("orchestration_cycle_failed",e.message));}).catch(e=>console.error("state_load_failed",e.message));
+const autonomousLoop = startAutonomousWorkLoop(orchestrationCycle, { intervalMs: Number(process.env.AFAGH_AGENT00_LOOP_INTERVAL_MS || 60000), runImmediately: false });
+loadState(pool,state).then(async s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run autonomous work loop.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; await orchestrationCycle("startup"); autonomousLoop.start();}).catch(e=>console.error("state_load_or_loop_failed",e.message));
 server.listen(PORT,"0.0.0.0",()=>console.log(`AFAGH Agent 00 listening on ${PORT}`));
