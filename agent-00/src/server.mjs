@@ -165,7 +165,8 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/evidence")return json(res,200,{verification:verifyEvidence(state),items:state.evidence});
  if(req.method==="GET"&&u.pathname==="/api/v1/gates")return json(res,200,state.gates);
  if(req.method==="GET"&&u.pathname==="/api/v1/teams")return json(res,200,state.teams);
- if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);\n if(req.method==="GET"&&u.pathname==="/api/v1/execution/status")return json(res,200,{mode:"CONTROLLED_CORE_EXECUTION",coreRepository:process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office",directMainWrites:false,executor:"allowlisted-plan-engine",eligibleTasks:state.tasks.filter(executionEligible).map(t=>t.id)});
+ if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
+ if(req.method==="GET"&&u.pathname==="/api/v1/execution/status")return json(res,200,{mode:"CONTROLLED_CORE_EXECUTION",coreRepository:process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office",directMainWrites:false,executor:"allowlisted-plan-engine",eligibleTasks:state.tasks.filter(executionEligible).map(t=>t.id)});
  if(req.method==="GET"&&u.pathname==="/api/v1/decisions")return json(res,200,decisions);
  if(req.method==="GET"&&u.pathname==="/api/v1/audit")return json(res,200,state.audit);
  if(req.method==="GET"&&u.pathname==="/api/v1/orchestrator/status")return json(res,200,{...state.orchestrator,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,activeTasks:state.tasks.filter(t=>["BLOCKED","READY_FOR_DELIBERATION","WAITING_TEAM"].includes(t.status)),autonomousLoop:autonomousLoop.status});
