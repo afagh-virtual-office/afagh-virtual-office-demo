@@ -12,4 +12,29 @@
 <div class="grid"><div class="card"><span>Inbound</span><div class="num">24</div><small class="live">● controlled</small></div><div class="card"><span>Outbound</span><div class="num">11</div><small>demo snapshot</small></div><div class="card"><span>Queue</span><div class="num">7</div><small>waiting</small></div><div class="card"><span>Agents</span><div class="num">18</div><small>12 available</small></div><div class="card"><span>AI Assist</span><div class="num">4</div><small>controlled</small></div></div>
 <section class="section" id="calls"><div class="head"><h3>Communication Stream</h3><small>LIVE RUNTIME TELEMETRY · AGENT 00</small></div><div class="calls"><div class="call"><i class="dot"></i><b>+98 · Sales</b><small>03:42</small><span class="pill">Agent</span><span>ACTIVE</span></div><div class="call"><i class="dot"></i><b>+86 · China Support</b><small>01:17</small><span class="pill">AI Assist</span><span>ACTIVE</span></div><div class="call"><i class="dot"></i><b>+98 · Operations</b><small>06:21</small><span class="pill">Agent</span><span>ACTIVE</span></div></div></section>
 <section class="section"><div class="head"><h3>Operating Layers</h3><small>GOVERNED COMMUNICATION PATH</small></div><div class="grid"><div class="card"><span>Voice / SIP</span><div class="num">●</div><small>Boundary</small></div><div class="card"><span>WebRTC</span><div class="num">●</div><small>Browser edge</small></div><div class="card"><span>Routing</span><div class="num">●</div><small>Policy driven</small></div><div class="card"><span>AI Voice</span><div class="num">●</div><small>Approval aware</small></div><div class="card"><span>Evidence</span><div class="num">●</div><small>Traceable</small></div></div></section>
-</main></div></body></html>
+</main></div><script>
+async function syncCommunicationRuntime(){
+  try{
+    const [h,e,a]=await Promise.all([
+      fetch('/api/v1/communication/health',{cache:'no-store'}),
+      fetch('/api/v1/communication/events',{cache:'no-store'}),
+      fetch('/api/v1/communication/actions',{cache:'no-store'})
+    ]);
+    const hd=await h.json(), ed=await e.json(), ad=await a.json();
+    const cards=[...document.querySelectorAll('.grid .card')];
+    if(cards[0]) cards[0].querySelector('.num').textContent=ed.count||0;
+    if(cards[1]) cards[1].querySelector('.num').textContent=ad.count||0;
+    if(cards[2]) cards[2].querySelector('.num').textContent=hd.status==='CONTROLLED'?'READY':'BLOCKED';
+    const stream=document.querySelector('#calls .calls');
+    if(stream && !ed.count && !ad.count){
+      stream.innerHTML='<div class="call"><i class="dot"></i><b>Runtime Communication Module</b><small>—</small><span class="pill">Agent 00</span><span>READY</span></div>';
+    }
+    const chip=document.querySelector('.chip');
+    if(chip) chip.textContent='● Communication Core · '+(hd.status||'UNKNOWN');
+  }catch(error){
+    const chip=document.querySelector('.chip');
+    if(chip) chip.textContent='● Communication Core · BLOCKED';
+  }
+}
+syncCommunicationRuntime();setInterval(syncCommunicationRuntime,10000);
+</script></body></html>
