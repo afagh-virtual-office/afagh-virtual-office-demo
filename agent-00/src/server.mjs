@@ -88,18 +88,40 @@ async function orchestrationCycle(source="manual"){
     if(current.id==="G01_CORE_REPOSITORY"){
       const core=await getCoreRepositoryStatus();
       record("CORE_REPOSITORY_CHECK","Agent 00",core);
-      if(core.exists){
+      const coreVerified=Boolean(
+        core.reachable===true &&
+        core.exists===true &&
+        core.private===true &&
+        core.branchVerified===true &&
+        core.defaultBranch==="main"
+      );
+      if(coreVerified){
         const blocker=state.audit.find(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
         if(blocker) blocker.status="RESOLVED";
         const t=state.tasks.find(x=>x.gate===current.id&&x.status==="BLOCKED");
-        if(t) Object.assign(t,{status:"READY_FOR_DELIBERATION",nextAction:"Three teams must review Core Repository evidence."});
+        if(t) Object.assign(t,{status:"READY_FOR_DELIBERATION",nextAction:"Three teams must review verified Core Repository evidence."});
         state.project.blocker=null;
         current.status="OPEN";
         state.project.gateStatus="OPEN";
         action={type:"ROUTE_TO_DELIBERATION",gate:current.id,evidence:core};
       }else{
-        upsertManagedTask({id:"T-001",title:"Restore/Expose Core Repository",status:"BLOCKED",gate:current.id,owner:"Agent 00",priority:"P0",nextAction:"Restore/expose afagh-virtual-office/afagh-virtual-office to the connected GitHub integration."});
-        action={type:"BLOCKED",gate:current.id,reason:"Core repository is not reachable",evidence:core};
+        upsertManagedTask({
+          id:"T-001",
+          title:"Restore/Expose Core Repository",
+          status:"BLOCKED",
+          gate:current.id,
+          owner:"Agent 00",
+          priority:"P0",
+          nextAction:core.failureCode
+            ? `Resolve ${core.failureCode} and obtain authenticated access to the private Core Repository.`
+            : "Verify private Core Repository access and main branch from the Agent runtime."
+        });
+        action={
+          type:"BLOCKED",
+          gate:current.id,
+          reason:"Core repository verification failed; G01 remains blocked.",
+          evidence:core
+        };
         record("ORCHESTRATION_BLOCKED","Agent 00",action);
       }
     }else{
