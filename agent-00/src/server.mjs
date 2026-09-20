@@ -9,6 +9,7 @@ import { startAutonomousWorkLoop } from "./autonomous-loop.mjs";
 import { executeCorePlan } from "./executor.mjs";
 import { runStartupSelfTest } from "./startup-self-test.mjs";
 import { evaluateGateEvidence } from "./gate-evaluator.mjs";
+import { runVirtualTeamReview } from "./governance-engine.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
@@ -78,6 +79,36 @@ async function executeApprovedTask(task){
   await persist();
   return result;
 }
+async function runAutomatedGovernanceForCurrentGate(current, technical){
+  if(!current || !technical?.technical?.valid) return {ran:false,reason:"technical_gate_not_ready"};
+  const blockerOpen=state.audit.some(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
+  if(blockerOpen) return {ran:false,reason:"open_blocker"};
+  const result=runVirtualTeamReview({
+    gateId:current.id,
+    state,
+    technical,
+    evidence:verifyEvidence(state)
+  });
+  for(const d of result.deliberations){
+    const existing=state.deliberations.find(x=>x.gate===d.gate&&x.teamId===d.teamId);
+    if(!existing && result.authenticatedTeams.includes(d.teamId)){
+      state.deliberations.push(d);
+      record("TEAM_DELIBERATION",`team:${d.teamId}`,d);
+    }
+  }
+  if(result.auditDecision && !state.auditDecisions.some(x=>x.gate===current.id)){
+    state.auditDecisions.push(result.auditDecision);
+    record("GOVERNANCE_AUDIT_DECISION","team:T03",result.auditDecision);
+  }
+  return {
+    ran:true,
+    authenticatedTeams:result.authenticatedTeams,
+    deliberationsCreated:result.deliberations.map(d=>({teamId:d.teamId,decision:d.decision})),
+    auditDecisionCreated:result.auditDecision?.decision||null,
+    mode:"AUTOMATED_VIRTUAL_TEAM_GOVERNANCE"
+  };
+}
+
 async function orchestrationCycle(source="manual"){
   const current=gate(state.project.currentGate);
   const cycleId=cryptoRandom();
@@ -134,8 +165,20 @@ async function orchestrationCycle(source="manual"){
     const deliberations=state.deliberations.filter(d=>d.gate===current.id);
     const missing=state.teams.map(t=>t.id).filter(id=>!deliberations.some(d=>d.teamId===id));
     if(missing.length){
-      action={type:"REQUEST_TEAM_DELIBERATION",gate:current.id,teams:missing};
-      for(const teamId of missing) upsertManagedTask({
+      const evidenceState=verifyEvidence(state);
+      const technical=await evaluateGateEvidence({
+        gateId:current.id,
+        state,
+        dbReady:await dbReady(),
+        autonomousLoopStatus:autonomousLoop.status,
+        evidenceValid:evidenceState.valid
+      });
+      const gov=await runAutomatedGovernanceForCurrentGate(current,technical);
+      const remaining=state.teams.map(t=>t.id).filter(id=>!state.deliberations.some(d=>d.gate===current.id&&d.teamId===id&&d.decision==="APPROVE"));
+      action=remaining.length
+        ? {type:"REQUEST_TEAM_DELIBERATION",gate:current.id,teams:remaining,technical,governance:gov}
+        : {type:"GOVERNANCE_READY_FOR_GATE_DECISION",gate:current.id,technical,governance:gov};
+      for(const teamId of remaining) upsertManagedTask({
         id:`DREQ-${current.id}-${teamId}`,
         title:`Deliberation required: ${current.name}`,
         status:"WAITING_TEAM",
