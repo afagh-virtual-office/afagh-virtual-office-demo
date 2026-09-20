@@ -1,4 +1,7 @@
 import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { URL } from "node:url";
 import { requireBearer, requireTeamBearer, auditActor } from "./auth.mjs";
@@ -10,8 +13,11 @@ import { executeCorePlan } from "./executor.mjs";
 import { runStartupSelfTest } from "./startup-self-test.mjs";
 import { evaluateGateEvidence } from "./gate-evaluator.mjs";
 import { runVirtualTeamReview } from "./governance-engine.mjs";
+import { getModuleRegistry, getVirtualExperts } from "./module-runtime.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const STATIC_PAGES = new Set(["index.html","virtual-experts.html","settings.html","commercial-activation.html","commercial-activation-final.html","communication-center.html","communication-os.html","gate-management.html","auth-evidence.html"]);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const pool = DATABASE_URL ? new Pool({connectionString:DATABASE_URL,ssl:process.env.PGSSL==="disable"?false:{rejectUnauthorized:false},max:5,connectionTimeoutMillis:5000,idleTimeoutMillis:10000}) : null;
@@ -254,6 +260,38 @@ async function initDb(){
  await pool.query(`insert into agent00_state(key,value) values($1,$2) on conflict(key) do nothing`,["project",JSON.stringify(project)]);
 }
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-agent":"AFAGH-Agent-00"});res.end(JSON.stringify(data));}
+async function serveStaticPage(res,name){
+  if(!STATIC_PAGES.has(name)) return false;
+  try{
+    const html=await fs.readFile(path.join(REPO_ROOT,name),"utf8");
+    res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
+    res.end(html);
+    return true;
+  }catch(error){
+    json(res,404,{error:"page_not_found",page:name});
+    return true;
+  }
+}
+async function proxyCommunication(req,res,u){
+  const base=(process.env.AFAGH_COMMUNICATION_RUNTIME_URL||"https://afagh-communication-os-runtime.onrender.com").replace(/\/$/,"");
+  const target=base+u.pathname+(u.search||"");
+  try{
+    const headers={};
+    for(const [k,v] of Object.entries(req.headers)){
+      if(!["host","content-length","connection"].includes(k)) headers[k]=v;
+    }
+    const chunks=[];
+    for await(const chunk of req) chunks.push(chunk);
+    const body=chunks.length?Buffer.concat(chunks):undefined;
+    const upstream=await fetch(target,{method:req.method,headers,body,redirect:"manual"});
+    const textBody=await upstream.text();
+    res.writeHead(upstream.status,{"content-type":upstream.headers.get("content-type")||"application/json; charset=utf-8","cache-control":"no-store"});
+    res.end(textBody);
+  }catch(error){
+    json(res,503,{error:"communication_runtime_unreachable",message:error?.message||String(error)});
+  }
+}
+
 
 function dashboard(){return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AFAGH Command Center — Agent 00</title><style>body{font-family:Inter,Arial,sans-serif;background:#080d19;color:#eef2ff;margin:0}main{max-width:1200px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.online{color:#7ff0a4}.offline{color:#ff8e8e}.muted{color:#9eabc9}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.card{background:#11192b;border:1px solid #263452;border-radius:14px;padding:16px;margin:12px 0}.value{font-size:22px;font-weight:700;margin-top:8px}.event{padding:10px 0;border-bottom:1px solid #24304b;font-family:ui-monospace,monospace;font-size:13px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#202b46}.error{color:#ff9b9b}button{background:#1d2a47;color:#fff;border:1px solid #3a4a70;border-radius:8px;padding:8px 12px;cursor:pointer}</style></head><body><main><div class="top"><div><h1>AFAGH Command Center</h1><div class="muted">Live operational view · Agent 00 Runtime</div></div><div><span id="dot" class="offline">● OFFLINE</span> <button onclick="refresh()">Refresh</button></div></div><div class="grid"><div class="card"><div class="muted">Runtime</div><div id="runtime" class="value">Checking…</div></div><div class="card"><div class="muted">Current Gate</div><div id="gate" class="value">—</div></div><div class="card"><div class="muted">Orchestrator Cycles</div><div id="cycles" class="value">—</div></div><div class="card"><div class="muted">Last Cycle</div><div id="last" class="value">—</div></div></div><div class="card"><div class="muted">Current Action</div><div id="action" class="value">—</div><div id="next" class="muted" style="margin-top:8px"></div></div><div class="card"><h2>Recent Activity</h2><div id="events">Loading…</div></div><div class="card"><h2>Three-Team Governance</h2><div id="teams">Loading…</div></div><div class="card"><h2>Golden Agent Request</h2><div class="muted">Authenticated end-to-end diagnostic: Auth → Tenant → Policy → Tool → PostgreSQL → Evidence → Audit.</div><p><input id="tenant" placeholder="Tenant ID" value="demo-tenant" style="padding:8px;border-radius:8px;border:1px solid #3a4a70;background:#0b1220;color:#fff"> <button onclick="golden()">Run Golden Request</button></p><pre id="golden" class="event">Not run</pre></div><div class="card"><div class="muted">Auto-refresh: 5 seconds · Source: Agent 00 runtime APIs</div></div><script>async function j(p){const r=await fetch(p,{cache:"no-store"});if(!r.ok)throw new Error(r.status);return r.json()}function esc(x){return String(x??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}async function refresh(){const ids=["/api/v1/health","/api/v1/orchestrator/status","/api/v1/events","/api/v1/teams"];const results=await Promise.allSettled(ids.map(j));const [h,s,e,t]=results.map(x=>x.status==="fulfilled"?x.value:null);const failed=results.map((x,i)=>x.status==="rejected"?ids[i]+": "+x.reason: null).filter(Boolean);const online=Boolean(h||s||e||t);document.getElementById("dot").className=online?"online":"offline";document.getElementById("dot").textContent=online?"● ONLINE":"● OFFLINE";document.getElementById("runtime").textContent=h?.status?.toUpperCase()||"API ERROR";document.getElementById("gate").textContent=s?(s.currentGate+" · "+s.gateStatus):"API ERROR";document.getElementById("cycles").textContent=s?.cycleCount??"—";document.getElementById("last").textContent=s?.lastCycleAt?new Date(s.lastCycleAt).toLocaleString():"—";document.getElementById("action").textContent=s?.currentAction?.type||"—";document.getElementById("next").textContent=s?((s.nextAction||"")+" · Loop: "+(s.autonomousLoop?.enabled?"ACTIVE":"STOPPED")+" · "+(s.autonomousLoop?.cyclesCompleted??0)+" completed"):"Runtime API unavailable";document.getElementById("events").innerHTML=e?((e.slice(-12).reverse().map(x=>'<div class="event"><b>'+esc(x.type)+'</b> · '+esc(x.actor)+' · '+esc(x.at||x.timestamp||"")+'</div>').join(""))||"No events yet"):"API unavailable";document.getElementById("teams").innerHTML=t?(t.map(x=>'<span class="pill">'+esc(x.id)+" · "+esc(x.name)+"</span> ").join("")):"API unavailable";if(failed.length)document.getElementById("next").textContent+=" · "+failed.join(" | ")}async function golden(){
  const out=document.getElementById("golden");out.textContent="Running…";
@@ -267,13 +305,53 @@ function dashboard(){return `<!doctype html><html><head><meta charset="utf-8"><m
 refresh();setInterval(refresh,5000)</script></main></body></html>`}
 const server=http.createServer(async(req,res)=>{
  const u=new URL(req.url,`http://localhost:${PORT}`);
- if(req.method==="GET"&&u.pathname==="/"){res.writeHead(200,{"content-type":"text/html; charset=utf-8"});return res.end(dashboard())}
+ if(req.method==="GET"&&u.pathname==="/"){return serveStaticPage(res,"index.html")}
+ if(req.method==="GET"&&u.pathname.startsWith("/") && u.pathname.endsWith(".html")){return serveStaticPage(res,u.pathname.slice(1))}
+ if(u.pathname.startsWith("/api/v1/communication/")){return proxyCommunication(req,res,u)}
  if(req.method==="GET"&&u.pathname==="/api/v1/health")return json(res,200,{service:"afagh-agent-00",status:"ok",mode:project.mode,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,databaseConfigured:Boolean(DATABASE_URL),timestamp:new Date().toISOString()});
- if(req.method==="GET"&&u.pathname==="/api/v1/project")return json(res,200,state.project);
+ if(req.method==="GET"&&u.pathname==="/api/v1/project")return json(res,200,state.project); if(req.method==="POST"&&u.pathname==="/api/v1/command"){
+   const b=await body(req);
+   const q=String(b?.command||"").trim().toLowerCase();
+   const db=await dbReady();
+   const evidence=verifyEvidence(state);
+   if(!q)return json(res,400,{error:"command_required"});
+   let result;
+   if(q.includes("وضعیت")||q.includes("status")) result={command:b.command,project:state.project,dbReady:db,evidence:evidence.valid,currentGate:state.project.currentGate,loop:autonomousLoop.status};
+   else if(q.includes("ماژول")||q.includes("module")) result=await getModuleRegistry({state,dbReady:db,autonomousLoopStatus:autonomousLoop.status});
+   else if(q.includes("evidence")||q.includes("اثبات")) result={command:b.command,evidenceCount:state.evidence.length,evidenceVerification:evidence};
+   else if(q.includes("gate")) result={command:b.command,gates:state.gates,currentGate:state.project.currentGate};
+   else result={command:b.command,accepted:true,mode:"CONTROLLED_COMMAND_CENTER",message:"Command routed to Agent 00. Use status, module, evidence, or gate for live read-only diagnostics."};
+   record("COMMAND_CENTER_REQUEST",actor({__afaghPrincipal:"operator"}),result);
+   await persist();
+   return json(res,200,result);
+ }
+
  if(req.method==="GET"&&u.pathname==="/api/v1/ready"){const r=await readiness();return json(res,r.ready?200:503,r)}
  if(req.method==="GET"&&u.pathname==="/api/v1/evidence")return json(res,200,{verification:verifyEvidence(state),items:state.evidence});
  if(req.method==="GET"&&u.pathname==="/api/v1/gates")return json(res,200,state.gates);
  if(req.method==="GET"&&u.pathname==="/api/v1/teams")return json(res,200,state.teams);
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules"){
+   return json(res,200,await getModuleRegistry({state,dbReady:await dbReady(),autonomousLoopStatus:autonomousLoop.status}));
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/virtual-experts"){
+   return json(res,200,getVirtualExperts({workspaceId:u.searchParams.get("workspaceId")||null}));
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/intelligent-operations"){
+   return json(res,200,{status:autonomousLoop.status,currentGate:state.project.currentGate,project:state.project,tasks:state.tasks,orchestrator:state.orchestrator});
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/governance"){
+   return json(res,200,{status:"ACTIVE",teams:state.teams,gates:state.gates,deliberations:state.deliberations,auditDecisions:state.auditDecisions,currentGate:state.project.currentGate});
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/evidence"){
+   const verification=verifyEvidence(state);
+   return json(res,200,{status:verification.valid?"ACTIVE":"BLOCKED",verification,count:state.evidence.length,recent:state.evidence.slice(-25)});
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/authentication"){
+   return json(res,200,{status:process.env.AFAGH_AGENT00_ADMIN_TOKEN?"ACTIVE":"BLOCKED",mode:"BEARER_RUNTIME",teamCredentials:["T01","T02","T03"].map(id=>({teamId:id,configured:Boolean(process.env[`AFAGH_AGENT00_${id}_TOKEN`])})),adminConfigured:Boolean(process.env.AFAGH_AGENT00_ADMIN_TOKEN)});
+ }
+ if(req.method==="GET"&&u.pathname==="/api/v1/modules/settings"){
+   return json(res,200,{status:(await dbReady())?"ACTIVE":"BLOCKED",runtime:{mode:project.mode,releaseClass:project.releaseClass},repository:{core:process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office",branch:process.env.AFAGH_CORE_REPOSITORY_BRANCH||"main"},database:{configured:Boolean(DATABASE_URL)},communication:{url:process.env.AFAGH_COMMUNICATION_RUNTIME_URL||"https://afagh-communication-os-runtime.onrender.com"}});
+ }
  if(req.method==="GET"&&u.pathname==="/api/v1/governance/status"){
    return json(res,200,{
      teams:state.teams.map(t=>({id:t.id,name:t.name,tokenConfigured:Boolean(process.env[`AFAGH_AGENT00_${t.id}_TOKEN`])})),
