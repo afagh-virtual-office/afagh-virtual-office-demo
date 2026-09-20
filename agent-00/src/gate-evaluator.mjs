@@ -44,7 +44,7 @@ async function architectureEvidence(){
   };
 }
 
-export async function evaluateGateEvidence({gateId,state,dbReady,autonomousLoopStatus}){
+export async function evaluateGateEvidence({gateId,state,dbReady,autonomousLoopStatus,evidenceValid}){
   const evidence=Array.isArray(state?.evidence)?state.evidence:[];
   const latest=(type)=>[...evidence].reverse().find(x=>x.type===type);
   const startup=latest("STARTUP_HTTP_E2E");
@@ -83,7 +83,7 @@ export async function evaluateGateEvidence({gateId,state,dbReady,autonomousLoopS
     result.technical.checks.noDirectMainWrites=state?.tasks?.every(t=>t.execution?.baseBranch!=="main" || t.execution?.pullRequest?.number);
     result.technical.checks.workerEvidence=Boolean(evidence.some(x=>x.type==="ORCHESTRATION_CYCLE"));
   }else if(gateId==="G08_TRUST_EVIDENCE"){
-    result.technical.checks.evidenceValid=Boolean(state && state.evidence && state.evidence.length>=1);
+    result.technical.checks.evidenceValid=Boolean(evidenceValid===true && state?.evidence?.length>=1);
   }else if(gateId==="G09_AUDIT"){
     result.technical.checks.goldenAudit=Boolean(goldenAudit?.payload?.outcome==="SUCCESS");
     result.technical.checks.auditDecisionRequired=Boolean(governanceAudit || gateId==="G09_AUDIT");
