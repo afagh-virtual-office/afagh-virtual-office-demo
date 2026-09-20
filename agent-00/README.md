@@ -7,7 +7,7 @@ Operational Project Orchestrator / Control Plane for AFAGH.
 - No gate bypass.
 - No implementation before the relevant gate is approved.
 - Team deliberation requires team-specific bearer credentials.
-- Independent Audit (T04) requires a separate audit decision before gate advance.
+- Independent Security / Quality / Governance audit is handled by T03 and requires a separate audit decision before gate advance.
 - State-changing control actions produce hash-chained evidence.
 - Demo is not Core.
 - Render LIVE is not equivalent to Production RELEASE.
@@ -33,7 +33,7 @@ Operational Project Orchestrator / Control Plane for AFAGH.
 - GET /api/v1/github/core-status
 - POST /api/v1/orchestrator/cycle — operator only
 - POST /api/v1/deliberations — team-specific token
-- POST /api/v1/audit/decision — T04 only
+- POST /api/v1/audit/decision — T03 only
 - POST /api/v1/gates/evaluate — operator only
 - POST /api/v1/gates/advance — operator only
 
@@ -43,7 +43,6 @@ Operational Project Orchestrator / Control Plane for AFAGH.
 - AFAGH_AGENT00_T01_TOKEN
 - AFAGH_AGENT00_T02_TOKEN
 - AFAGH_AGENT00_T03_TOKEN
-- AFAGH_AGENT00_T04_TOKEN
 - AFAGH_GITHUB_TOKEN
 - AFAGH_CORE_REPOSITORY (optional)
 - DATABASE_URL
