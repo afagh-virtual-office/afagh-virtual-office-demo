@@ -8,6 +8,7 @@ import pg from "pg";
 import { startAutonomousWorkLoop } from "./autonomous-loop.mjs";
 import { executeCorePlan } from "./executor.mjs";
 import { runStartupSelfTest } from "./startup-self-test.mjs";
+import { evaluateGateEvidence } from "./gate-evaluator.mjs";
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_TOKEN = process.env.AFAGH_AGENT00_ADMIN_TOKEN || "";
@@ -267,8 +268,70 @@ const server=http.createServer(async(req,res)=>{
    await persist();
    return json(res,200,{ok:true,chain:["Auth","Tenant","Policy","Governed Tool","PostgreSQL","Evidence","Audit","Response"],...result,evidence:evidenceCheck,audit:auditRecord});
  }
- if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){const a=auth(req,res);if(!a)return;const b=await body(req);const id=b?.gate||state.project.currentGate;if(!gate(id))return json(res,404,{error:"unknown_gate"});const ds=state.deliberations.filter(d=>d.gate===id);const approvals=state.teams.filter(t=>ds.some(d=>d.teamId===t.id&&d.decision==="APPROVE")).map(t=>t.id);const blockers=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===id);const evidence=verifyEvidence(state);const result={gate:id,eligible:approvals.length===state.teams.length&&auditDecision?.decision==="APPROVE"&&blockers.length===0&&evidence.valid,approvals,missingApprovals:state.teams.map(t=>t.id).filter(id=>!approvals.includes(id)),auditDecision:auditDecision||null,blockingFindings:blockers,evidence};record("GATE_EVALUATION",actor(req),result);await persist();return json(res,200,result)}
- if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){const a=auth(req,res);if(!a)return;const current=gate(state.project.currentGate);const ds=state.deliberations.filter(d=>d.gate===current.id);const missing=state.teams.map(t=>t.id).filter(id=>!ds.some(d=>d.teamId===id&&d.decision==="APPROVE"));const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");const auditDecision=state.auditDecisions.find(d=>d.gate===current.id);const evidence=verifyEvidence(state);if(missing.length||blocking.length||auditDecision?.decision!=="APPROVE"||!evidence.valid)return json(res,409,{error:"gate_blocked",gate:current.id,missingApprovals:missing,blockingFindings:blocking,auditDecision:auditDecision||null,evidence});current.status="PASSED";const i=state.gates.findIndex(g=>g.id===current.id);if(i<state.gates.length-1){state.gates[i+1].status="OPEN";state.project.currentGate=state.gates[i+1].id;state.project.gateStatus="OPEN";state.project.blocker=null}else{state.project.gateStatus="PASSED";state.project.releaseClass="RELEASED"}record("GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate});await persist();return json(res,200,{ok:true,project:state.project,gates:state.gates})}
+ if(req.method==="POST"&&u.pathname==="/api/v1/gates/evaluate"){
+   const a=auth(req,res);if(!a)return;
+   const b=await body(req);
+   const id=b?.gate||state.project.currentGate;
+   if(!gate(id))return json(res,404,{error:"unknown_gate"});
+   const evidenceState=verifyEvidence(state);
+   const technical=await evaluateGateEvidence({
+     gateId:id,
+     state,
+     dbReady:await dbReady(),
+     autonomousLoopStatus:autonomousLoop.status,
+     evidenceValid:evidenceState.valid
+   });
+   const blockingFindings=state.audit.filter(x=>x.gate===id&&x.severity==="BLOCKER"&&x.status==="OPEN");
+   const eligible=Boolean(
+     technical.technical.valid &&
+     technical.governance.teamApprovals.length===state.teams.length &&
+     technical.governance.auditDecision?.decision==="APPROVE" &&
+     blockingFindings.length===0 &&
+     evidenceState.valid
+   );
+   const result={...technical,eligible,blockingFindings,evidence:evidenceState};
+   record("GATE_EVALUATION",actor(req),result);
+   await persist();
+   return json(res,200,result);
+ }
+ if(req.method==="POST"&&u.pathname==="/api/v1/gates/advance"){
+   const a=auth(req,res);if(!a)return;
+   const current=gate(state.project.currentGate);
+   if(!current)return json(res,409,{error:"current_gate_missing"});
+   const evidenceState=verifyEvidence(state);
+   const technical=await evaluateGateEvidence({
+     gateId:current.id,
+     state,
+     dbReady:await dbReady(),
+     autonomousLoopStatus:autonomousLoop.status,
+     evidenceValid:evidenceState.valid
+   });
+   const blocking=state.audit.filter(x=>x.gate===current.id&&x.severity==="BLOCKER"&&x.status==="OPEN");
+   const canAdvance=Boolean(
+     technical.technical.valid &&
+     technical.governance.teamApprovals.length===state.teams.length &&
+     technical.governance.auditDecision?.decision==="APPROVE" &&
+     blocking.length===0 &&
+     evidenceState.valid
+   );
+   if(!canAdvance){
+     return json(res,409,{error:"gate_blocked",gate:current.id,technical,blockingFindings:blocking,evidence:evidenceState});
+   }
+   current.status="PASSED";
+   const i=state.gates.findIndex(g=>g.id===current.id);
+   if(i<state.gates.length-1){
+     state.gates[i+1].status="OPEN";
+     state.project.currentGate=state.gates[i+1].id;
+     state.project.gateStatus="OPEN";
+     state.project.blocker=null;
+   }else{
+     state.project.gateStatus="PASSED";
+     state.project.releaseClass="RELEASED";
+   }
+   record("GATE_ADVANCED",actor(req),{gate:current.id,next:state.project.currentGate,technical,evidence:evidenceState});
+   await persist();
+   return json(res,200,{ok:true,project:state.project,gates:state.gates,technical,evidence:evidenceState});
+ }
  json(res,404,{error:"not_found"});
 });
 const autonomousLoop = startAutonomousWorkLoop(orchestrationCycle, { intervalMs: Number(process.env.AFAGH_AGENT00_LOOP_INTERVAL_MS || 60000), runImmediately: false });
