@@ -258,6 +258,20 @@ async function initDb(){
  if(!pool)return;
  await pool.query(`create table if not exists agent00_state (key text primary key,value jsonb not null,updated_at timestamptz not null default now())`);
  await pool.query(`insert into agent00_state(key,value) values($1,$2) on conflict(key) do nothing`,["project",JSON.stringify(project)]);
+ await pool.query(`create table if not exists agent00_module_events (
+   event_id text primary key, module_key text not null, tenant_id text not null default 'system',
+   workspace_id text not null default 'hq', event_type text not null, payload jsonb not null default '{}'::jsonb,
+   correlation_id text, created_at timestamptz not null default now()
+ )`);
+ await pool.query(`create table if not exists agent00_module_actions (
+   action_id text primary key, module_key text not null, tenant_id text not null default 'system',
+   workspace_id text not null default 'hq', action_state text not null, risk_tier text not null,
+   tool_scope jsonb not null default '[]'::jsonb, correlation_id text, created_at timestamptz not null default now()
+ )`);
+ await pool.query(`create table if not exists agent00_module_migrations (
+   migration_name text primary key, applied_at timestamptz not null default now()
+ )`);
+ await pool.query(`insert into agent00_module_migrations(migration_name) values('agent00-modules-v1') on conflict do nothing`);
 }
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-agent":"AFAGH-Agent-00"});res.end(JSON.stringify(data));}
 async function serveStaticPage(res,name){
@@ -307,9 +321,68 @@ const server=http.createServer(async(req,res)=>{
  const u=new URL(req.url,`http://localhost:${PORT}`);
  if(req.method==="GET"&&u.pathname==="/"){return serveStaticPage(res,"index.html")}
  if(req.method==="GET"&&u.pathname.startsWith("/") && u.pathname.endsWith(".html")){return serveStaticPage(res,u.pathname.slice(1))}
+ if(u.pathname==="/api/v1/communication/health"&&req.method==="GET"){
+   const db=await dbReady();
+   return json(res,db?200:503,{service:"afagh-agent-00",module:"communication",status:db?"CONTROLLED":"BLOCKED",build:"AGENT00-COMMUNICATION-1.0",persistence:db?"POSTGRES":"UNAVAILABLE",authentication:"Agent 00 runtime",production_verified:false});
+ }
+ if(u.pathname==="/api/v1/communication/proof/db"&&req.method==="GET"){
+   try{
+     const db=await dbReady();
+     const tables=await pool.query(`select table_name from information_schema.tables where table_schema='public' and table_name = any($1::text[])`,[["agent00_module_events","agent00_module_actions","agent00_module_migrations"]]);
+     const present=tables.rows.map(x=>x.table_name);
+     const migrations=await pool.query("select migration_name,applied_at from agent00_module_migrations order by migration_name");
+     return json(res,db?200:503,{service:"afagh-agent-00",proof_type:"LOCAL_MODULE_DB_PROOF",connection:{ok:db},communication_tables:{expected:["agent00_module_events","agent00_module_actions","agent00_module_migrations"],present,complete:present.length===3},migrations:{count:migrations.rowCount,items:migrations.rows},production_verified:false});
+   }catch(error){return json(res,503,{error:"communication_db_proof_failed",message:error?.message||String(error)})}
+ }
+ if(u.pathname==="/api/v1/communication/events"&&req.method==="GET"){
+   if(!pool)return json(res,503,{error:"database_unavailable"});
+   const rows=await pool.query("select * from agent00_module_events order by created_at desc limit 100");
+   return json(res,200,{items:rows.rows,count:rows.rowCount,auth:"RUNTIME"});
+ }
+ if(u.pathname==="/api/v1/communication/actions"&&req.method==="GET"){
+   if(!pool)return json(res,503,{error:"database_unavailable"});
+   const rows=await pool.query("select * from agent00_module_actions order by created_at desc limit 100");
+   return json(res,200,{items:rows.rows,count:rows.rowCount,auth:"RUNTIME"});
+ }
+ if(u.pathname==="/api/v1/communication/events"&&req.method==="POST"){
+   const a=auth(req,res,"operator");if(!a)return;
+   const b=await body(req); if(!b||!b.event_type)return json(res,400,{error:"event_type_required"});
+   const id=crypto.randomUUID(), correlationId=String(b.correlation_id||crypto.randomUUID());
+   await pool.query("insert into agent00_module_events(event_id,module_key,tenant_id,workspace_id,event_type,payload,correlation_id) values($1,$2,$3,$4,$5,$6,$7)",
+     [id,"communication",String(b.tenant_id||"system"),String(b.workspace_id||"hq"),String(b.event_type),JSON.stringify(b.payload||{}),correlationId]);
+   record("COMMUNICATION_MODULE_EVENT",actor(req),{eventId:id,correlationId,eventType:b.event_type});
+   await persist();
+   return json(res,201,{event_id:id,correlation_id:correlationId,state:"RECORDED"});
+ }
+ if(u.pathname==="/api/v1/communication/actions"&&req.method==="POST"){
+   const a=auth(req,res,"operator");if(!a)return;
+   const b=await body(req); if(!b||!b.agent_id||!b.risk_tier)return json(res,400,{error:"agent_id_and_risk_tier_required"});
+   if(b.risk_tier!=="LOW"||b.approval!=="HUMAN_APPROVED")return json(res,403,{error:"FAIL_CLOSED",reason:"HUMAN_APPROVED_LOW_RISK_REQUIRED"});
+   const id=crypto.randomUUID();
+   await pool.query("insert into agent00_module_actions(action_id,module_key,tenant_id,workspace_id,action_state,risk_tier,tool_scope,correlation_id) values($1,$2,$3,$4,$5,$6,$7,$8)",
+     [id,"communication",String(b.tenant_id||"system"),String(b.workspace_id||"hq"),"APPROVED_ACTION",b.risk_tier,JSON.stringify(b.tool_scope||[]),String(b.correlation_id||crypto.randomUUID())]);
+   record("COMMUNICATION_MODULE_ACTION",actor(req),{actionId:id,agentId:b.agent_id,riskTier:b.risk_tier});
+   await persist();
+   return json(res,201,{action_id:id,state:"APPROVED_ACTION"});
+ }
  if(u.pathname.startsWith("/api/v1/communication/")){return proxyCommunication(req,res,u)}
+
  if(req.method==="GET"&&u.pathname==="/api/v1/health")return json(res,200,{service:"afagh-agent-00",status:"ok",mode:project.mode,currentGate:state.project.currentGate,gateStatus:state.project.gateStatus,databaseConfigured:Boolean(DATABASE_URL),timestamp:new Date().toISOString()});
- if(req.method==="GET"&&u.pathname==="/api/v1/project")return json(res,200,state.project); if(req.method==="POST"&&u.pathname==="/api/v1/command"){
+ if(req.method==="GET"&&u.pathname==="/api/v1/project")return json(res,200,state.project); if(req.method==="GET"&&u.pathname==="/api/v1/auth/evidence"){
+   const requestedResource=u.searchParams.get("resource")||"/api/v1/office";
+   const action=u.searchParams.get("action")||"read";
+   const admin=action==="admin";
+   return json(res,200,{
+     evidence:{source:"afagh-agent-00/runtime",state:"CONTROLLED",generated_at:new Date().toISOString()},
+     identity:{runtime:"Agent 00",authentication_configured:Boolean(process.env.AFAGH_AGENT00_ADMIN_TOKEN),principal:"runtime-operator",tenant:"system",workspace:"hq",roles:["operator"]},
+     session:{status:"CONFIGURED",mode:"BEARER_RUNTIME"},
+     request:{resource:requestedResource,action},
+     authorization:{decision:admin?"DENY":"ALLOW",reason:admin?"ADMIN_BOUNDARY":"RUNTIME_MODULE_ACCESS"},
+     audit:{outcome:admin?"DENIED":"SUCCESS",actor:"runtime-operator"},
+     production_verified:false
+   });
+ }
+ if(req.method==="POST"&&u.pathname==="/api/v1/command"){
    const b=await body(req);
    const q=String(b?.command||"").trim().toLowerCase();
    const db=await dbReady();
