@@ -22,6 +22,10 @@ export async function runStartupSelfTest({baseUrl,token,tenant="agent00-selftest
 
   await call("health","/api/v1/health");
   await call("ready","/api/v1/ready");
+  await call("homepage","/");
+  await call("virtual_experts_page","/virtual-experts.html");
+  await call("settings_page","/settings.html");
+  const modules = await call("module_registry","/api/v1/modules");
   const golden = await call("golden_request","/api/v1/agent/golden-request",{
     method:"POST",
     headers:{
@@ -56,12 +60,20 @@ export async function runStartupSelfTest({baseUrl,token,tenant="agent00-selftest
       golden.body?.ok===true &&
       JSON.stringify(chain)===JSON.stringify(chainExpected) &&
       missingTenant.res?.status===400 &&
-      unknownTool.res?.status===403,
+      unknownTool.res?.status===403 &&
+      modules.res?.status===200 &&
+      Array.isArray(modules.body?.modules) &&
+      modules.body.modules.length===8 &&
+      modules.body.modules.every(x=>x.status==="ACTIVE"),
     results,
     assertions:{
       goldenChain:JSON.stringify(chain)===JSON.stringify(chainExpected),
       tenantIsolationBoundary:missingTenant.res?.status===400,
-      toolGovernanceBoundary:unknownTool.res?.status===403
-    }
+      toolGovernanceBoundary:unknownTool.res?.status===403,
+      moduleRegistry:modules.res?.status===200,
+      allModulesActive:Array.isArray(modules.body?.modules) && modules.body.modules.length===8 && modules.body.modules.every(x=>x.status==="ACTIVE"),
+      staticPages:results.filter(x=>["homepage","virtual_experts_page","settings_page"].includes(x.name)).every(x=>x.status===200)
+    },
+    moduleStatuses:modules.body?.modules||[]
   };
 }
