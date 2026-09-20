@@ -231,6 +231,17 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="GET"&&u.pathname==="/api/v1/evidence")return json(res,200,{verification:verifyEvidence(state),items:state.evidence});
  if(req.method==="GET"&&u.pathname==="/api/v1/gates")return json(res,200,state.gates);
  if(req.method==="GET"&&u.pathname==="/api/v1/teams")return json(res,200,state.teams);
+ if(req.method==="GET"&&u.pathname==="/api/v1/governance/status"){
+   return json(res,200,{
+     teams:state.teams.map(t=>({id:t.id,name:t.name,tokenConfigured:Boolean(process.env[`AFAGH_AGENT00_${t.id}_TOKEN`])})),
+     approvals:state.teams.map(t=>({
+       teamId:t.id,
+       gates:[...new Set(state.deliberations.filter(d=>d.teamId===t.id&&d.decision==="APPROVE").map(d=>d.gate))]
+     })),
+     currentGate:state.project.currentGate,
+     gateStatus:state.project.gateStatus
+   });
+ }
  if(req.method==="GET"&&u.pathname==="/api/v1/tasks")return json(res,200,state.tasks);
  if(req.method==="GET"&&u.pathname==="/api/v1/execution/status")return json(res,200,{mode:"CONTROLLED_CORE_EXECUTION",coreRepository:process.env.AFAGH_CORE_REPOSITORY||"afagh-virtual-office/afagh-virtual-office",directMainWrites:false,executor:"allowlisted-plan-engine",eligibleTasks:state.tasks.filter(executionEligible).map(t=>t.id)});
  if(req.method==="GET"&&u.pathname==="/api/v1/decisions")return json(res,200,decisions);
@@ -382,6 +393,7 @@ async function runAndRecordStartupSelfTest(){
     tenant:process.env.AFAGH_SELF_TEST_TENANT||"agent00-selftest"
   });
   record("STARTUP_HTTP_E2E","Agent 00",result);
+  console.log("startup_self_test",JSON.stringify({passed:result.passed,assertions:result.assertions}));
   await persist();
 }
 
