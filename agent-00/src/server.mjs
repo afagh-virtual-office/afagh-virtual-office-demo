@@ -394,6 +394,7 @@ async function runAndRecordStartupSelfTest(){
   });
   record("STARTUP_HTTP_E2E","Agent 00",result);
   console.log("startup_self_test",JSON.stringify({passed:result.passed,assertions:result.assertions}));
+  console.log("governance_config",JSON.stringify({teams:state.teams.map(t=>({id:t.id,tokenConfigured:Boolean(process.env[`AFAGH_AGENT00_${t.id}_TOKEN`])}))}));
   await persist();
 }
 
