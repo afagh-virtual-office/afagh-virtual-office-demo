@@ -219,5 +219,5 @@ const server=http.createServer(async(req,res)=>{
  json(res,404,{error:"not_found"});
 });
 const autonomousLoop = startAutonomousWorkLoop(orchestrationCycle, { intervalMs: Number(process.env.AFAGH_AGENT00_LOOP_INTERVAL_MS || 60000), runImmediately: false });
-loadState(pool,state).then(async s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run autonomous work loop.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; await orchestrationCycle("startup"); autonomousLoop.start();}).catch(e=>console.error("state_load_or_loop_failed",e.message));
+initDb().then(()=>loadState(pool,state)).then(async s=>{state=normalizeState(s);if(!state.orchestrator)state.orchestrator={status:"ACTIVE_OPERATIONAL_CONTROL",lastCycleAt:null,cycleCount:0,currentAction:null,nextAction:"Run autonomous work loop.",managedBy:"Agent 00",executionRule:"No gate bypass; no implementation before gate approval; every action produces evidence."}; await orchestrationCycle("startup"); autonomousLoop.start();}).catch(e=>console.error("state_load_or_loop_failed",e.message));
 server.listen(PORT,"0.0.0.0",()=>console.log(`AFAGH Agent 00 listening on ${PORT}`));
