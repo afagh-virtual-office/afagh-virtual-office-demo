@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import { URL } from "node:url";
 import { requireBearer, requireTeamBearer, auditActor } from "./auth.mjs";
 import { createState, appendEvent, appendEvidence, verifyEvidence, loadState, saveState } from "./state.mjs";
@@ -133,7 +134,7 @@ async function orchestrationCycle(source="manual"){
   await persist();
   return {cycleId,orchestrator:state.orchestrator,action,project:state.project};
 }
-function cryptoRandom(){return `CYC-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;}
+function cryptoRandom(){return `CYC-${crypto.randomUUID()}`;}
 
 async function dbReady(){ if(!pool) return false; try{await pool.query("select 1");return true}catch{return false}}
 async function initDb(){
